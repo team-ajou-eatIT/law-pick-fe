@@ -57,6 +57,7 @@
           "build": "vite build",
           "preview": "vite preview",
           "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-          "type-check": "tsc --noEmit"
+          "type-check": "tsc --noEmit",
+          "deploy": "npm run build && npx netlify deploy --prod --dir=dist"
       }
   }

@@ -1,5 +1,7 @@
 @custom-variant dark (&:is(.dark *));
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+
 :root {
   --font-size: 16px;
   --background: #ffffff;
@@ -126,6 +128,7 @@
 
   body {
     @apply bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
   }
 }
 

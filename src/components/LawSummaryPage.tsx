@@ -13,9 +13,10 @@ interface LawSummaryPageProps {
 }
 
 export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
-  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("부동산");
   const [selectedLaw, setSelectedLaw] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   const lawDatabase = [
     {
@@ -28,27 +29,59 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     },
     {
       id: 2,
-      title: "근로기준법",
-      category: "노동법",
+      title: "부동산 거래신고법",
+      category: "부동산",
       lastUpdate: "2024.11.20",
+      summary: "부동산 거래의 신고 및 관리에 관한 사항을 규정하여 부동산 거래의 투명성을 확보",
+      difficulty: "중급"
+    },
+    {
+      id: 3,
+      title: "은행법",
+      category: "금융",
+      lastUpdate: "2024.10.30",
+      summary: "은행의 건전한 운영과 금융시장의 안정을 도모하여 금융거래질서를 확립",
+      difficulty: "고급"
+    },
+    {
+      id: 4,
+      title: "전자금융거래법",
+      category: "금융",
+      lastUpdate: "2024.12.01",
+      summary: "전자금융거래의 안전성과 신뢰성을 확보하여 이용자를 보호",
+      difficulty: "중급"
+    },
+    {
+      id: 5,
+      title: "근로기준법",
+      category: "취업",
+      lastUpdate: "2024.11.15",
       summary: "근로조건의 기준을 정함으로써 근로자의 기본적 생활을 보장하고 향상시키는 것을 목적",
       difficulty: "고급"
     },
     {
-      id: 3,
-      title: "소비자기본법",
-      category: "소비자보호",
-      lastUpdate: "2024.10.30",
-      summary: "소비자의 권익증진과 소비생활의 향상을 도모하고 국민경제의 발전에 이바지",
+      id: 6,
+      title: "최저임금법",
+      category: "취업",
+      lastUpdate: "2024.10.20",
+      summary: "근로자에 대하여 임금의 최저수준을 보장하여 근로자의 생활안정과 노동력의 질적 향상",
       difficulty: "초급"
     },
     {
-      id: 4,
-      title: "개인정보보호법",
-      category: "정보통신",
-      lastUpdate: "2024.12.01",
-      summary: "개인정보의 수집·이용·제공 등 처리에 있어서 개인의 자유와 권리를 보호",
+      id: 7,
+      title: "고등교육법",
+      category: "교육",
+      lastUpdate: "2024.12.05",
+      summary: "고등교육에 관한 기본적인 사항을 규정하여 대학의 자율성과 공공성을 확보",
       difficulty: "중급"
+    },
+    {
+      id: 8,
+      title: "장학금법",
+      category: "교육",
+      lastUpdate: "2024.11.10",
+      summary: "학자금 지원 및 장학사업을 통해 교육기회 균등과 인재 양성을 도모",
+      difficulty: "초급"
     }
   ];
 
@@ -107,18 +140,6 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     }
   };
 
-  const handleSearch = () => {
-    if (searchQuery.trim()) {
-      const found = lawDatabase.find(law => 
-        law.title.includes(searchQuery) || law.category.includes(searchQuery)
-      );
-      if (found) {
-        setSelectedLaw(found);
-        analyzeSelectedLaw();
-      }
-    }
-  };
-
   const handleLawSelect = (law: any) => {
     setSelectedLaw(law);
     analyzeSelectedLaw();
@@ -171,28 +192,60 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
           {/* 법률 검색 및 선택 */}
           <div className="lg:col-span-1">
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Search className="h-5 w-5" />
-                  법률 검색
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex gap-2">
+              <CardContent className="pt-6 space-y-4">
+                {/* 카테고리 버튼 */}
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant={selectedCategory === "부동산" ? "default" : "outline"}
+                    className="w-full"
+                    onClick={() => setSelectedCategory("부동산")}
+                  >
+                    부동산
+                  </Button>
+                  <Button
+                    variant={selectedCategory === "금융" ? "default" : "outline"}
+                    className="w-full"
+                    onClick={() => setSelectedCategory("금융")}
+                  >
+                    금융
+                  </Button>
+                  <Button
+                    variant={selectedCategory === "취업" ? "default" : "outline"}
+                    className="w-full"
+                    onClick={() => setSelectedCategory("취업")}
+                  >
+                    취업
+                  </Button>
+                  <Button
+                    variant={selectedCategory === "교육" ? "default" : "outline"}
+                    className="w-full"
+                    onClick={() => setSelectedCategory("교육")}
+                  >
+                    교육
+                  </Button>
+                </div>
+
+                {/* 검색창 */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="법률명 또는 분야 입력..."
+                    placeholder="법령 검색..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                    className="pl-9"
                   />
-                  <Button onClick={handleSearch} size="icon">
-                    <Search className="h-4 w-4" />
-                  </Button>
                 </div>
                 
                 <div className="space-y-3">
-                  <h4 className="font-medium">주요 법률</h4>
-                  {lawDatabase.map((law) => (
+                  <h4 className="font-medium">현행법령</h4>
+                  {lawDatabase
+                    .filter(law => 
+                      law.category === selectedCategory &&
+                      (searchQuery === "" || 
+                       law.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                       law.summary.toLowerCase().includes(searchQuery.toLowerCase()))
+                    )
+                    .map((law) => (
                     <Card 
                       key={law.id}
                       className={`cursor-pointer transition-all hover:shadow-md ${
@@ -204,9 +257,6 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
                             <h5 className="font-medium text-sm">{law.title}</h5>
-                            <Badge className={getDifficultyColor(law.difficulty)}>
-                              {law.difficulty}
-                            </Badge>
                           </div>
                           <p className="text-xs text-muted-foreground">{law.summary}</p>
                           <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -238,26 +288,6 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
             ) : (
               <div className="space-y-6">
                 {/* 선택된 법률 정보 */}
-                <Card>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="flex items-center gap-2">
-                        <FileText className="h-5 w-5" />
-                        {selectedLawDetail.title}
-                      </CardTitle>
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm">
-                          <Download className="h-4 w-4 mr-2" />
-                          다운로드
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleCopy(selectedLawDetail.originalText)}>
-                          <Copy className="h-4 w-4 mr-2" />
-                          복사
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                </Card>
 
                 {isAnalyzing ? (
                   <Card>
@@ -277,8 +307,8 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                   <Tabs defaultValue="original" className="w-full">
                     <TabsList className="grid w-full grid-cols-3">
                       <TabsTrigger value="original">법령 원문</TabsTrigger>
-                      <TabsTrigger value="summary">AI 요약</TabsTrigger>
                       <TabsTrigger value="easy">쉬운 말 설명</TabsTrigger>
+                      <TabsTrigger value="cardnews">카드뉴스 자세히 보기</TabsTrigger>
                     </TabsList>
                     
                     <TabsContent value="original" className="space-y-4">
@@ -292,42 +322,6 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                               {selectedLawDetail.originalText}
                             </div>
                           </ScrollArea>
-                        </CardContent>
-                      </Card>
-                    </TabsContent>
-                    
-                    <TabsContent value="summary" className="space-y-4">
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="flex items-center gap-2">
-                            <Sparkles className="h-5 w-5 text-primary" />
-                            AI 핵심 요약
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          <div>
-                            <h4 className="font-semibold mb-3">주요 내용</h4>
-                            <ul className="space-y-2">
-                              {selectedLawDetail.summary.mainPoints.map((point, index) => (
-                                <li key={index} className="flex gap-2">
-                                  <span className="text-primary font-semibold">•</span>
-                                  <span className="text-sm">{point}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                          
-                          <div>
-                            <h4 className="font-semibold mb-3">핵심 용어 설명</h4>
-                            <div className="space-y-3">
-                              {selectedLawDetail.summary.keyTerms.map((term, index) => (
-                                <div key={index} className="border-l-4 border-primary/20 pl-4">
-                                  <h5 className="font-medium text-primary">{term.term}</h5>
-                                  <p className="text-sm text-muted-foreground">{term.definition}</p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
                         </CardContent>
                       </Card>
                     </TabsContent>
@@ -371,6 +365,22 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                               ))}
                             </ul>
                           </div>
+                        </CardContent>
+                      </Card>
+                    </TabsContent>
+                    
+                    <TabsContent value="cardnews" className="space-y-4">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <Sparkles className="h-5 w-5 text-primary" />
+                            카드뉴스 자세히 보기
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <CardContent className="space-y-4">
+                            {/* 자동 생성된 카드뉴스가 여기에 표시됩니다 */}
+                          </CardContent>
                         </CardContent>
                       </Card>
                     </TabsContent>

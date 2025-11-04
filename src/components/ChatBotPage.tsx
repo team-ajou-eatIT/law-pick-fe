@@ -104,7 +104,7 @@ export function ChatBotPage({ onBack }: ChatBotPageProps) {
                 <Scale className="h-5 w-5 text-blue-600" />
               </div>
               <div>
-                <h1 className="font-semibold">LawPick AI 법률 챗봇</h1>
+                <h1 className="font-semibold">LawPick AI 법령 어시스턴트</h1>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                   온라인

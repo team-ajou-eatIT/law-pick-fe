@@ -37,7 +37,7 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
       id: 1,
       title: "청년 기본법 개정안",
       description: "청년의 연령 기준을 현행 34세에서 39세로 확대하고, 청년정책 지원 대상을 넓히는 개정안",
-      category: "청년정책",
+      category: "취업",
       proposer: "국회 교육위원회",
       date: "2024.12.22",
       status: 'passed',
@@ -65,7 +65,7 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
       id: 2,
       title: "청년 주거지원 특별법",
       description: "청년 전세대출 한도 상향 및 지원 조건 완화를 통한 주거 안정성 강화 법안",
-      category: "주거지원",
+      category: "부동산",
       proposer: "국토교통위원회",
       date: "2024.12.20",
       status: 'passed',
@@ -93,7 +93,7 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
       id: 3,
       title: "청년창업지원법 개정안",
       description: "창업 지원금 확대 및 세제 혜택 강화를 통한 청년 창업 생태계 활성화 방안",
-      category: "창업지원",
+      category: "금융",
       proposer: "중소벤처기업위원회",
       date: "2024.12.18",
       status: 'passed',
@@ -121,7 +121,7 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
       id: 4,
       title: "청년 고용촉진 특별법",
       description: "청년 일자리 창출과 고용 안정성 향상을 위한 기업 인센티브 및 지원 확대",
-      category: "일자리",
+      category: "취업",
       proposer: "환경노동위원회",
       date: "2024.12.15",
       status: 'passed',
@@ -149,7 +149,7 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
       id: 5,
       title: "청년 교육비 지원 확대법",
       description: "대학등록금 부담 경감 및 평생교육 기회 확대를 위한 지원 체계 구축",
-      category: "교육지원",
+      category: "교육",
       proposer: "교육위원회",
       date: "2024.12.10",
       status: 'pending',
@@ -211,7 +211,7 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
     }
   };
 
-  const categories = ['all', '청년정책', '주거지원', '창업지원', '일자리', '교육지원'];
+  const categories = ['all', '부동산', '금융', '취업', '교육'];
   const filteredBills = selectedCategory === 'all' 
     ? youthBills 
     : youthBills.filter(bill => bill.category === selectedCategory);
@@ -249,14 +249,6 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
                   <div>
                     <CardTitle className="text-xl mb-2">{selectedBill.title}</CardTitle>
                     <p className="text-muted-foreground">{selectedBill.description}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Badge className={getStatusColor(selectedBill.status)}>
-                      {getStatusText(selectedBill.status)}
-                    </Badge>
-                    <Badge className={getPriorityColor(selectedBill.priority)}>
-                      {getPriorityText(selectedBill.priority)}
-                    </Badge>
                   </div>
                 </div>
               </CardHeader>
@@ -410,7 +402,7 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
                 <Users className="h-5 w-5 text-purple-600" />
               </div>
               <div>
-                <h1 className="font-semibold">최신 가결안 분석</h1>
+                <h1 className="font-semibold">국회 가결안 분석 </h1>
                 <p className="text-sm text-muted-foreground">청년 관련 법안 현황을 확인하세요</p>
               </div>
             </div>
@@ -448,12 +440,6 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-3">
                       <h3 className="text-lg font-semibold">{bill.title}</h3>
-                      <Badge className={getStatusColor(bill.status)}>
-                        {getStatusText(bill.status)}
-                      </Badge>
-                      <Badge className={getPriorityColor(bill.priority)}>
-                        우선순위 {getPriorityText(bill.priority)}
-                      </Badge>
                     </div>
                     
                     <p className="text-muted-foreground mb-4 leading-relaxed">

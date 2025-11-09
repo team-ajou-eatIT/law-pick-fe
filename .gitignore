@@ -120,3 +120,7 @@ temp/
 .env.development.local
 .env.test.local
 .env.production.local
+
+
+*.md
+!README.md

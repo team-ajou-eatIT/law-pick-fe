@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Routes, Route, useNavigate, useSearchParams } from "react-router-dom";
 import {
   MessageCircle,
   FileText,
@@ -29,22 +30,56 @@ import { LawSummaryPage } from "./components/LawSummaryPage";
 import { BillAnalysisPage } from "./components/BillAnalysisPage";
 import svgPaths from "./imports/svg-azm55u9hex";
 
-type PageType =
-  | "main"
-  | "search"
-  | "chatbot"
-  | "summary"
-  | "analysis";
-
 export default function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<MainPage />} />
+      <Route path="/search" element={<SearchPage />} />
+      <Route path="/chatbot" element={<ChatBotPageWrapper />} />
+      <Route path="/summary" element={<LawSummaryPageWrapper />} />
+      <Route path="/analysis" element={<BillAnalysisPageWrapper />} />
+    </Routes>
+  );
+}
+
+// 각 페이지 래퍼 컴포넌트
+function SearchPage() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const query = searchParams.get('q') || '';
+
+  return (
+    <SearchResults
+      searchQuery={query}
+      onBack={() => navigate('/')}
+      onNewSearch={(newQuery) => navigate(`/search?q=${encodeURIComponent(newQuery)}`)}
+    />
+  );
+}
+
+function ChatBotPageWrapper() {
+  const navigate = useNavigate();
+  return <ChatBotPage onBack={() => navigate('/')} />;
+}
+
+function LawSummaryPageWrapper() {
+  const navigate = useNavigate();
+  return <LawSummaryPage onBack={() => navigate('/')} />;
+}
+
+function BillAnalysisPageWrapper() {
+  const navigate = useNavigate();
+  return <BillAnalysisPage onBack={() => navigate('/')} />;
+}
+
+function MainPage() {
+  const navigate = useNavigate();
   const [isChatExpanded, setIsChatExpanded] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentPage, setCurrentPage] =
-    useState<PageType>("main");
 
   const handleSearch = () => {
     if (searchQuery.trim()) {
-      setCurrentPage("search");
+      navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
     }
   };
 
@@ -54,16 +89,8 @@ export default function App() {
     }
   };
 
-  const handleBackToMain = () => {
-    setCurrentPage("main");
-  };
-
-  const handleNewSearch = (newQuery: string) => {
-    setSearchQuery(newQuery);
-  };
-
-  const navigateToPage = (page: PageType) => {
-    setCurrentPage(page);
+  const navigateToPage = (page: string) => {
+    navigate(`/${page}`);
   };
 
   const cardNews = [
@@ -135,26 +162,6 @@ export default function App() {
       bgColor: "bg-purple-50",
     },
   ];
-
-  // 페이지 라우팅
-  switch (currentPage) {
-    case "search":
-      return (
-        <SearchResults
-          searchQuery={searchQuery}
-          onBack={handleBackToMain}
-          onNewSearch={handleNewSearch}
-        />
-      );
-    case "chatbot":
-      return <ChatBotPage onBack={handleBackToMain} />;
-    case "summary":
-      return <LawSummaryPage onBack={handleBackToMain} />;
-    case "analysis":
-      return <BillAnalysisPage onBack={handleBackToMain} />;
-    default:
-      break;
-  }
 
   return (
     <div className="min-h-screen bg-white relative overflow-hidden">
@@ -747,7 +754,7 @@ export default function App() {
               {/* 나머지 기능들 */}
               {features.map((feature, index) => {
                 const Icon = feature.icon;
-                const pageMap: { [key: string]: PageType } = {
+                const pageMap: { [key: string]: string } = {
                   "AI 법률 요약 & 쉬운말 해설": "summary",
                   "국회 가결안 청년 맞춤 분석": "analysis",
                 };

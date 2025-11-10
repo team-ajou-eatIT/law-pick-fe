@@ -30,7 +30,7 @@ function getApiBaseUrl(): string {
   }
   
   // 개발 환경: localhost 사용
-  return 'http://localhost:8000';
+  return 'http://localhost:3000';
 }
 
 export const API_BASE_URL = getApiBaseUrl();
@@ -61,7 +61,7 @@ export const API_ENDPOINTS = {
   lawCards: (lawId: string) => `/api/v1/law/${lawId}/cards`,
 
   // 어시스턴트
-  assistantThread: '/assistant/thread',
+  assistantThread: '/assistant/threads',
   assistantQuery: '/assistant/query',
 
 } as const;

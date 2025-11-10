@@ -123,4 +123,6 @@ temp/
 
 
 *.md
+*.sh
+
 !README.md

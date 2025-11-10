@@ -30,7 +30,7 @@ function getApiBaseUrl(): string {
   }
   
   // 개발 환경: localhost 사용
-  return 'http://localhost:3000';
+  return 'http://localhost:8000';
 }
 
 export const API_BASE_URL = getApiBaseUrl();
@@ -51,9 +51,15 @@ export const API_ENDPOINTS = {
   bills: '/api/v1/bills',
   billDetail: (billId: string) => `/api/v1/bills/${billId}`,
   
-  // 법률 정보 (law_easy)
+  // 법령 쉬운말 재가공
   laws: '/api/v1/law/list',
   lawDetail: (lawId: string) => `/api/v1/law/${lawId}`,
   lawSummarize: '/api/v1/law/summarize',
-} as const;
+  lawCache: (lawId: string) => `/api/v1/law/cache/${lawId}`,
+  lawOriginal: (lawId: string) => `/api/v1/law/${lawId}/original`,
+  lawMarkdown: (lawId: string) => `/api/v1/law/${lawId}/markdown`,
+  lawCards: (lawId: string) => `/api/v1/law/${lawId}/cards`,
 
+  // 어시스턴스
+
+} as const;

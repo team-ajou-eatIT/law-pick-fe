@@ -4,11 +4,20 @@
 
 [build.environment]
   NODE_VERSION = "18"
+  # 프로덕션 API URL 설정 (Cloudflare Tunnel 사용)
+  VITE_API_BASE_URL = "https://api.law-pick.me"
 
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+
+# API 프록시 리다이렉트 (백엔드가 다른 서버에 있을 때)
+# [[redirects]]
+#   from = "/api/*"
+#   to = "https://your-backend-server.com/api/:splat"
+#   status = 200
+#   force = true
 
 [[headers]]
   for = "/*"

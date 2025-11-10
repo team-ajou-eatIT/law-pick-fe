@@ -101,3 +101,4 @@ export interface YouthProposalDetailUI extends YouthProposalDetail {
   sources: Source[];                  // 출처 및 원문 링크 목록
 }
 
+

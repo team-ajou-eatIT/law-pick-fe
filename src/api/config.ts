@@ -60,6 +60,8 @@ export const API_ENDPOINTS = {
   lawMarkdown: (lawId: string) => `/api/v1/law/${lawId}/markdown`,
   lawCards: (lawId: string) => `/api/v1/law/${lawId}/cards`,
 
-  // 어시스턴스
+  // 어시스턴트
+  assistantThread: '/assistant/thread',
+  assistantQuery: '/assistant/query',
 
 } as const;

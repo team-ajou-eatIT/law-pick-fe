@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Send, Bot, User } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { ScrollArea } from "./ui/scroll-area";
+import { createThread, sendQuery } from "../api/assistant";
 
 interface Message {
   id: number;
@@ -17,25 +18,26 @@ export function ChatBot() {
       id: 1,
       content: "안녕하세요! 법률 관련 질문이 있으시면 언제든 물어보세요. 🏛️",
       sender: 'bot',
-      timestamp: new Date(Date.now() - 60000)
-    },
-    {
-      id: 2,
-      content: "임대차 보증금 반환 관련해서 궁금한 점이 있어요",
-      sender: 'user',
-      timestamp: new Date(Date.now() - 30000)
-    },
-    {
-      id: 3,
-      content: "임대차 보증금 반환과 관련해서 도움을 드릴게요! 구체적으로 어떤 상황인지 말씀해 주시면 더 정확한 답변을 드릴 수 있습니다. 예를 들어:\n\n• 계약 기간이 만료되었나요?\n• 집주인이 보증금 반환을 거부하고 있나요?\n• 임대차보호법 관련 정보가 필요하신가요?",
-      sender: 'bot',
-      timestamp: new Date(Date.now() - 10000)
+      timestamp: new Date()
     }
   ]);
   const [inputValue, setInputValue] = useState("");
+  const [threadId, setThreadId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSendMessage = () => {
-    if (!inputValue.trim()) return;
+  // 컴포넌트 마운트 시 대화 세션 생성
+  useEffect(() => {
+    const initThread = async () => {
+      const response = await createThread();
+      if (response.data) {
+        setThreadId(response.data.thread_id);
+      }
+    };
+    initThread();
+  }, []);
+
+  const handleSendMessage = async () => {
+    if (!inputValue.trim() || !threadId) return;
 
     const newUserMessage: Message = {
       id: messages.length + 1,
@@ -45,18 +47,39 @@ export function ChatBot() {
     };
 
     setMessages(prev => [...prev, newUserMessage]);
+    const messageToSend = inputValue;
     setInputValue("");
+    setIsLoading(true);
 
-    // 봇 응답 시뮬레이션
-    setTimeout(() => {
-      const botResponse: Message = {
-        id: messages.length + 2,
-        content: "질문을 확인했습니다. 관련 법률 정보를 찾아서 쉽게 설명해드릴게요. 잠시만 기다려주세요! ⚖️",
-        sender: 'bot',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, botResponse]);
-    }, 1000);
+    try {
+      const response = await sendQuery({
+        message: messageToSend,
+        thread_id: threadId,
+        debug: false
+      });
+
+      if (response.data) {
+        const botResponse: Message = {
+          id: messages.length + 2,
+          content: response.data.answer,
+          sender: 'bot',
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, botResponse]);
+      } else {
+        const errorMessage: Message = {
+          id: messages.length + 2,
+          content: `죄송합니다. 오류가 발생했습니다: ${response.error}`,
+          sender: 'bot',
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, errorMessage]);
+      }
+    } catch (error) {
+      console.error('Query error:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -123,11 +146,12 @@ export function ChatBot() {
             onKeyPress={handleKeyPress}
             placeholder="법률 관련 질문을 입력하세요..."
             className="flex-1"
+            disabled={isLoading}
           />
-          <Button 
+          <Button
             onClick={handleSendMessage}
             size="icon"
-            disabled={!inputValue.trim()}
+            disabled={!inputValue.trim() || isLoading}
             className="bg-blue-600 hover:bg-blue-700"
           >
             <Send className="h-4 w-4" />

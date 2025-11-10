@@ -1,15 +1,19 @@
-import { useState } from "react";
-import { ArrowLeft, Send, Bot, User, Scale, MessageCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ArrowLeft, Send, Bot, User, Scale, MessageCircle, FileText, Globe } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { ScrollArea } from "./ui/scroll-area";
 import { Card, CardContent } from "./ui/card";
+import { createThread, sendQuery, type Document } from "../api/assistant";
 
 interface Message {
   id: number;
   content: string;
   sender: 'user' | 'bot';
   timestamp: Date;
+  documents?: Document[];
+  used_web_search?: boolean;
+  route?: string;
 }
 
 interface ChatBotPageProps {
@@ -27,6 +31,21 @@ export function ChatBotPage({ onBack }: ChatBotPageProps) {
   ]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [threadId, setThreadId] = useState<string | null>(null);
+
+  // 컴포넌트 마운트 시 대화 세션 생성
+  useEffect(() => {
+    const initThread = async () => {
+      const response = await createThread();
+      if (response.data) {
+        setThreadId(response.data.thread_id);
+        console.log('Thread created:', response.data.thread_id);
+      } else {
+        console.error('Failed to create thread:', response.error);
+      }
+    };
+    initThread();
+  }, []);
 
   const frequentQuestions = [
     "임대차 보증금 반환 받는 방법이 궁금해요",
@@ -37,9 +56,9 @@ export function ChatBotPage({ onBack }: ChatBotPageProps) {
     "교통사고 발생 시 대처 방법을 알려주세요"
   ];
 
-  const handleSendMessage = (content?: string) => {
+  const handleSendMessage = async (content?: string) => {
     const messageContent = content || inputValue;
-    if (!messageContent.trim()) return;
+    if (!messageContent.trim() || !threadId) return;
 
     const newUserMessage: Message = {
       id: messages.length + 1,
@@ -52,31 +71,48 @@ export function ChatBotPage({ onBack }: ChatBotPageProps) {
     setInputValue("");
     setIsLoading(true);
 
-    // 봇 응답 시뮬레이션
-    setTimeout(() => {
-      let botResponse = "";
-      const lowerContent = messageContent.toLowerCase();
-      
-      if (lowerContent.includes("임대차") || lowerContent.includes("보증금")) {
-        botResponse = "임대차 보증금 반환에 대해 안내드리겠습니다.\n\n📋 **주요 포인트:**\n• 계약 만료 또는 해지 시 임차인은 보증금 반환을 요구할 수 있습니다\n• 집주인은 특별한 사유가 없는 한 보증금을 반환해야 합니다\n• 보증금에서 차감 가능한 항목: 미납임대료, 원상복구비용 등\n\n⚖️ **관련 법령:**\n주택임대차보호법 제4조, 민법 제654조\n\n🔍 **추가 질문이 있으시면 구체적인 상황을 말씀해 주세요!**";
-      } else if (lowerContent.includes("해고") || lowerContent.includes("직장")) {
-        botResponse = "부당해고에 대해 설명드리겠습니다.\n\n📋 **부당해고 판단 기준:**\n• 정당한 사유 없는 해고\n• 해고 절차를 위반한 경우\n• 임신, 출산, 노조활동 등을 이유로 한 해고\n\n⚖️ **대응 방법:**\n1. 해고 사유서 요구\n2. 노동청 진정 신청\n3. 노동위원회 구제신청\n4. 민사소송 제기\n\n🕐 **신청 기한:** 해고일로부터 3개월 이내\n\n더 자세한 상황을 말씀해 주시면 구체적인 조언을 드릴게요!";
-      } else if (lowerContent.includes("이혼") || lowerContent.includes("재산분할")) {
-        botResponse = "이혼 시 재산분할에 대해 안내드리겠습니다.\n\n📋 **재산분할 원칙:**\n• 혼인 중 형성된 공동재산이 대상\n• 기여도에 따라 분할 (통상 1:1)\n• 혼인 전 재산이나 상속재산은 제외\n\n💰 **분할 대상 재산:**\n• 부동산, 예금, 주식 등\n• 퇴직금, 국민연금 등\n• 사업체, 지적재산권 등\n\n⚖️ **관련 법령:**\n민법 제839조의2\n\n구체적인 재산 현황이나 특별한 사정이 있으시면 말씀해 주세요!";
-      } else {
-        botResponse = `"${messageContent}"에 대한 질문을 확인했습니다.\n\n관련 법률 정보를 찾아서 정확하고 이해하기 쉽게 설명해드리겠습니다. 법률 문제는 개별 상황에 따라 달라질 수 있으니, 구체적인 상황을 추가로 말씀해 주시면 더 정확한 답변을 드릴 수 있습니다.\n\n💡 **참고:** 본 상담은 일반적인 법률 정보 제공이며, 구체적인 법적 문제는 전문 변호사와 상담받으시기를 권장합니다.`;
-      }
+    try {
+      // 실제 API 호출
+      const response = await sendQuery({
+        message: messageContent,
+        thread_id: threadId,
+        debug: false
+      });
 
-      const newBotMessage: Message = {
+      if (response.data) {
+        const newBotMessage: Message = {
+          id: messages.length + 2,
+          content: response.data.answer,
+          sender: 'bot',
+          timestamp: new Date(),
+          documents: response.data.documents,
+          used_web_search: response.data.used_web_search,
+          route: response.data.route
+        };
+
+        setMessages(prev => [...prev, newBotMessage]);
+      } else {
+        // 에러 처리
+        const errorMessage: Message = {
+          id: messages.length + 2,
+          content: `죄송합니다. 응답을 가져오는 중 오류가 발생했습니다.\n\n오류: ${response.error}\n\n다시 시도해 주세요.`,
+          sender: 'bot',
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, errorMessage]);
+      }
+    } catch (error) {
+      console.error('Query error:', error);
+      const errorMessage: Message = {
         id: messages.length + 2,
-        content: botResponse,
+        content: '죄송합니다. 네트워크 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.',
         sender: 'bot',
         timestamp: new Date()
       };
-      
-      setMessages(prev => [...prev, newBotMessage]);
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -132,18 +168,45 @@ export function ChatBotPage({ onBack }: ChatBotPageProps) {
                 
                 <div className={`max-w-2xl ${message.sender === 'user' ? 'text-right' : ''}`}>
                   <div className={`inline-block px-4 py-3 rounded-2xl whitespace-pre-wrap ${
-                    message.sender === 'user' 
-                      ? 'bg-blue-600 text-white rounded-br-md' 
+                    message.sender === 'user'
+                      ? 'bg-blue-600 text-white rounded-br-md'
                       : 'bg-gray-100 text-gray-900 rounded-bl-md'
                   }`}>
                     <p>{message.content}</p>
                   </div>
+
+                  {/* 문서 참조 정보 표시 (봇 응답에만) */}
+                  {message.sender === 'bot' && message.documents && message.documents.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      <p className="text-xs font-medium text-gray-600 flex items-center gap-1">
+                        <FileText className="h-3 w-3" />
+                        참조 문서 ({message.documents.length}개)
+                      </p>
+                      {message.documents.map((doc, idx) => (
+                        <Card key={idx} className="bg-white">
+                          <CardContent className="p-3">
+                            <p className="text-xs font-medium text-blue-600 mb-1">{doc.source}</p>
+                            <p className="text-xs text-gray-600 line-clamp-2">{doc.preview}</p>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* 웹 검색 사용 표시 */}
+                  {message.sender === 'bot' && message.used_web_search && (
+                    <div className="mt-2 flex items-center gap-1 text-xs text-blue-600">
+                      <Globe className="h-3 w-3" />
+                      <span>웹 검색 활용됨</span>
+                    </div>
+                  )}
+
                   <p className={`text-xs text-muted-foreground mt-1 ${
                     message.sender === 'user' ? 'text-right' : 'text-left'
                   }`}>
-                    {message.timestamp.toLocaleTimeString('ko-KR', { 
-                      hour: '2-digit', 
-                      minute: '2-digit' 
+                    {message.timestamp.toLocaleTimeString('ko-KR', {
+                      hour: '2-digit',
+                      minute: '2-digit'
                     })}
                   </p>
                 </div>

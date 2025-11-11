@@ -4,8 +4,8 @@
 
 /**
  * API Base URL 결정 로직
- * 1. 환경변수 VITE_API_BASE_URL이 있으면 사용
- * 2. 프로덕션 빌드인 경우 상대 경로 사용 (동일 도메인에 백엔드가 있을 때)
+ * 1. 환경변수 VITE_API_BASE_URL이 있으면 사용 (최우선)
+ * 2. 프로덕션 빌드인 경우 api.law-pick.me 사용
  * 3. 개발 환경에서는 localhost 사용
  */
 function getApiBaseUrl(): string {
@@ -18,15 +18,9 @@ function getApiBaseUrl(): string {
   const isProduction = import.meta.env.PROD;
   
   if (isProduction) {
-    // 프로덕션: 현재 페이지와 같은 오리진 사용 (백엔드가 같은 도메인에 있을 때)
-    // 또는 절대 경로로 백엔드 URL 반환
-    // return ''; // 상대 경로 사용 (같은 도메인)
-    
-    // 백엔드가 다른 도메인에 있다면 여기에 URL 설정
-    // return 'https://api.yourdomain.com';
-    
-    // 기본값: 현재 오리진 사용
-    return window.location.origin;
+    // 프로덕션: API는 별도 도메인(api.law-pick.me)에 있음
+    // window.location.origin을 사용하면 /analysis 같은 서브 경로에서 문제 발생
+    return 'https://api.law-pick.me';
   }
   
   // 개발 환경: localhost 사용

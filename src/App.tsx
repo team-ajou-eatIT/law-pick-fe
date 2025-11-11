@@ -407,212 +407,73 @@ function MainPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-20 max-w-6xl mx-auto">
               {/* 부동산 정책 Pick */}
               <div className="relative">
-                <div className="backdrop-blur-[5.1px] bg-white/80 rounded-[15px] border border-[#e6e6e6] p-4 h-[149px] flex flex-col justify-between hover:shadow-lg transition-all cursor-pointer">
-                  <div>
-                    <h3
-                      className="text-[#666666] mb-1"
-                      style={{
-                        fontSize: "24px",
-                        fontWeight: 500,
-                        letterSpacing: "-1.68px",
-                      }}
-                    >
-                      부동산
-                      <br />
-                      Pick
-                    </h3>
-                  </div>
-                  <div className="flex items-start justify-between">
-                    <p
-                      className="text-[#666666] flex-1"
-                      style={{
-                        fontSize: "10px",
-                        letterSpacing: "-0.7px",
-                      }}
-                    >
-                      전세사기를 당하지 않으려면
-                      <br />뭘 확인해야 하나요 ?
-                    </p>
-                    <div className="flex-shrink-0 w-[27px] h-[27px]">
-                      <svg
-                        className="block size-full"
-                        fill="none"
-                        viewBox="0 0 27 27"
-                      >
-                        <path
-                          d={svgPaths.p12b57640}
-                          stroke="#666666"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                        <circle
-                          cx="13.5"
-                          cy="13.5"
-                          r="13"
-                          stroke="#666666"
-                        />
-                      </svg>
-                    </div>
-                  </div>
+                <div className="backdrop-blur-[5.1px] bg-white/80 rounded-[15px] border border-[#e6e6e6] p-4 h-[149px] flex flex-col justify-center items-center hover:shadow-lg transition-all cursor-pointer">
+                  <h3
+                    className="text-[#666666] text-center"
+                    style={{
+                      fontSize: "24px",
+                      fontWeight: 500,
+                      letterSpacing: "-1.68px",
+                    }}
+                  >
+                    부동산
+                    <br />
+                    Pick
+                  </h3>
                 </div>
               </div>
 
               {/* 금융 Pick */}
               <div className="relative">
-                <div className="backdrop-blur-[5.1px] bg-white/80 rounded-[15px] border border-[#e6e6e6] p-4 h-[149px] flex flex-col justify-between hover:shadow-lg transition-all cursor-pointer">
-                  <div>
-                    <h3
-                      className="text-[#666666] mb-1"
-                      style={{
-                        fontSize: "24px",
-                        fontWeight: 500,
-                        letterSpacing: "-1.68px",
-                      }}
-                    >
-                      금융
-                      <br />
-                      Pick
-                    </h3>
-                  </div>
-                  <div className="flex items-start justify-between">
-                    <p
-                      className="text-[#666666] flex-1"
-                      style={{
-                        fontSize: "10px",
-                        letterSpacing: "-0.7px",
-                      }}
-                    >
-                      청년도약계좌를
-                      <br />
-                      소개해주세요 !
-                    </p>
-                    <div className="flex-shrink-0 w-[27px] h-[27px]">
-                      <svg
-                        className="block size-full"
-                        fill="none"
-                        viewBox="0 0 27 27"
-                      >
-                        <path
-                          d={svgPaths.p12b57640}
-                          stroke="#666666"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                        <circle
-                          cx="13.5"
-                          cy="13.5"
-                          r="13"
-                          stroke="#666666"
-                        />
-                      </svg>
-                    </div>
-                  </div>
+                <div className="backdrop-blur-[5.1px] bg-white/80 rounded-[15px] border border-[#e6e6e6] p-4 h-[149px] flex flex-col justify-center items-center hover:shadow-lg transition-all cursor-pointer">
+                  <h3
+                    className="text-[#666666] text-center"
+                    style={{
+                      fontSize: "24px",
+                      fontWeight: 500,
+                      letterSpacing: "-1.68px",
+                    }}
+                  >
+                    금융
+                    <br />
+                    Pick
+                  </h3>
                 </div>
               </div>
 
               {/* 취업 Pick */}
               <div className="relative">
-                <div className="backdrop-blur-[5.1px] bg-white/80 rounded-[15px] border border-[#e6e6e6] p-4 h-[149px] flex flex-col justify-between hover:shadow-lg transition-all cursor-pointer">
-                  <div>
-                    <h3
-                      className="text-[#666666] mb-1"
-                      style={{
-                        fontSize: "24px",
-                        fontWeight: 500,
-                        letterSpacing: "-1.68px",
-                      }}
-                    >
-                      취업
-                      <br />
-                      Pick
-                    </h3>
-                  </div>
-                  <div className="flex items-start justify-between">
-                    <p
-                      className="text-[#666666] flex-1"
-                      style={{
-                        fontSize: "10px",
-                        letterSpacing: "-0.7px",
-                      }}
-                    >
-                      근로계약서에 꼭 들어가야 하는
-                      <br />
-                      내용은 무엇인가요 ?
-                    </p>
-                    <div className="flex-shrink-0 w-[27px] h-[27px]">
-                      <svg
-                        className="block size-full"
-                        fill="none"
-                        viewBox="0 0 27 27"
-                      >
-                        <path
-                          d={svgPaths.p12b57640}
-                          stroke="#666666"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                        <circle
-                          cx="13.5"
-                          cy="13.5"
-                          r="13"
-                          stroke="#666666"
-                        />
-                      </svg>
-                    </div>
-                  </div>
+                <div className="backdrop-blur-[5.1px] bg-white/80 rounded-[15px] border border-[#e6e6e6] p-4 h-[149px] flex flex-col justify-center items-center hover:shadow-lg transition-all cursor-pointer">
+                  <h3
+                    className="text-[#666666] text-center"
+                    style={{
+                      fontSize: "24px",
+                      fontWeight: 500,
+                      letterSpacing: "-1.68px",
+                    }}
+                  >
+                    취업
+                    <br />
+                    Pick
+                  </h3>
                 </div>
               </div>
 
               {/* 교육 Pick */}
               <div className="relative">
-                <div className="backdrop-blur-[5.1px] bg-white/80 rounded-[15px] border border-[#e6e6e6] p-4 h-[149px] flex flex-col justify-between hover:shadow-lg transition-all cursor-pointer">
-                  <div>
-                    <h3
-                      className="text-[#666666] mb-1"
-                      style={{
-                        fontSize: "24px",
-                        fontWeight: 500,
-                        letterSpacing: "-1.68px",
-                      }}
-                    >
-                      교육
-                      <br />
-                      Pick
-                    </h3>
-                  </div>
-                  <div className="flex items-start justify-between">
-                    <p
-                      className="text-[#666666] flex-1"
-                      style={{
-                        fontSize: "10px",
-                        letterSpacing: "-0.7px",
-                      }}
-                    >
-                      졸업했는데도
-                      <br />
-                      학자금 대출 상환을 유예할 수 있나요?
-                    </p>
-                    <div className="flex-shrink-0 w-[27px] h-[27px]">
-                      <svg
-                        className="block size-full"
-                        fill="none"
-                        viewBox="0 0 27 27"
-                      >
-                        <path
-                          d={svgPaths.p12b57640}
-                          stroke="#666666"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                        <circle
-                          cx="13.5"
-                          cy="13.5"
-                          r="13"
-                          stroke="#666666"
-                        />
-                      </svg>
-                    </div>
-                  </div>
+                <div className="backdrop-blur-[5.1px] bg-white/80 rounded-[15px] border border-[#e6e6e6] p-4 h-[149px] flex flex-col justify-center items-center hover:shadow-lg transition-all cursor-pointer">
+                  <h3
+                    className="text-[#666666] text-center"
+                    style={{
+                      fontSize: "24px",
+                      fontWeight: 500,
+                      letterSpacing: "-1.68px",
+                    }}
+                  >
+                    교육
+                    <br />
+                    Pick
+                  </h3>
                 </div>
               </div>
             </div>

@@ -119,7 +119,7 @@ function Group9() {
 
 function Group1() {
   return (
-    <div className="absolute left-[625px] size-[27px] top-[402px]">
+    <div className="absolute left-[636px] size-[27px] top-[395px]">
       <svg className="block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 27 27">
         <g id="Group 8">
           <path d={svgPaths.p12b57640} id="Vector" stroke="var(--stroke-0, #666666)" strokeLinecap="round" strokeLinejoin="round" />
@@ -151,7 +151,7 @@ function SalesSuggestion() {
 
 function Group3() {
   return (
-    <div className="absolute left-[1122px] size-[27px] top-[408px]">
+    <div className="absolute left-[1136px] size-[27px] top-[395px]">
       <svg className="block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 27 27">
         <g id="Group 8">
           <path d={svgPaths.p12b57640} id="Vector" stroke="var(--stroke-0, #666666)" strokeLinecap="round" strokeLinejoin="round" />
@@ -183,7 +183,7 @@ function Group6() {
 
 function Group4() {
   return (
-    <div className="absolute left-[1372px] size-[27px] top-[409px]">
+    <div className="absolute left-[1386px] size-[27px] top-[395px]">
       <svg className="block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 27 27">
         <g id="Group 8">
           <path d={svgPaths.p12b57640} id="Vector" stroke="var(--stroke-0, #666666)" strokeLinecap="round" strokeLinejoin="round" />
@@ -215,7 +215,7 @@ function Group7() {
 
 function Group2() {
   return (
-    <div className="absolute left-[868px] size-[27px] top-[408px]">
+    <div className="absolute left-[886px] size-[27px] top-[395px]">
       <svg className="block size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 27 27">
         <g id="Group 8">
           <path d={svgPaths.p12b57640} id="Vector" stroke="var(--stroke-0, #666666)" strokeLinecap="round" strokeLinejoin="round" />

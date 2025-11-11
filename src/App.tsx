@@ -6,8 +6,6 @@ import {
   Users,
   Scale,
   ArrowRight,
-  ChevronDown,
-  ChevronUp,
   Search,
   Calendar,
   BookOpen,
@@ -23,7 +21,6 @@ import {
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { ImageWithFallback } from "./components/figma/ImageWithFallback";
-import { ChatBot } from "./components/ChatBot";
 import { SearchResults } from "./components/SearchResults";
 import { ChatBotPage } from "./components/ChatBotPage";
 import { LawSummaryPage } from "./components/LawSummaryPage";
@@ -74,7 +71,6 @@ function BillAnalysisPageWrapper() {
 
 function MainPage() {
   const navigate = useNavigate();
-  const [isChatExpanded, setIsChatExpanded] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
   const handleSearch = () => {
@@ -700,54 +696,30 @@ function MainPage() {
             </div>
 
             <div className="grid md:grid-cols-3 gap-6">
-              {/* 법률 챗봇 - 접기/펼치기 가능한 채팅 인터페이스 */}
+              {/* 법률 챗봇 */}
               <Card className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-2">
                 <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center mb-4">
-                        <MessageCircle className="h-6 w-6 text-blue-600" />
-                      </div>
-                      <CardTitle className="text-xl">
-                        {" "}
-                        AI 법령 어시스턴트
-                      </CardTitle>
-                      <CardDescription className="text-base leading-relaxed">
-                        궁금한 법률 문제, 지금 바로 질문해보세요.
-                        AI가 실시간으로 관련 법령 정보를 찾아 쉽고 빠르게 답변해드립니다.
-                      </CardDescription>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() =>
-                        setIsChatExpanded(!isChatExpanded)
-                      }
-                      className="shrink-0 h-8 w-8 text-blue-600 hover:bg-blue-50"
-                    >
-                      {isChatExpanded ? (
-                        <ChevronUp className="h-4 w-4" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4" />
-                      )}
-                    </Button>
+                  <div className="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center mb-4">
+                    <MessageCircle className="h-6 w-6 text-blue-600" />
                   </div>
+                  <CardTitle className="text-xl">
+                    {" "}
+                    AI 법령 어시스턴트
+                  </CardTitle>
+                  <CardDescription className="text-base leading-relaxed">
+                    궁금한 법률 문제, 지금 바로 질문해보세요.
+                    AI가 실시간으로 관련 법령 정보를 찾아 쉽고 빠르게 답변해드립니다.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {isChatExpanded ? (
-                    <div className="h-[400px] max-h-[400px] overflow-y-auto border rounded-lg">
-                      <ChatBot />
-                    </div>
-                  ) : (
-                    <Button
-                      onClick={() => navigateToPage("chatbot")}
-                      variant="outline"
-                      className="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-colors"
-                    >
-                      채팅 시작하기
-                      <MessageCircle className="ml-2 h-4 w-4" />
-                    </Button>
-                  )}
+                  <Button
+                    onClick={() => navigateToPage("chatbot")}
+                    variant="outline"
+                    className="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-colors"
+                  >
+                    채팅 시작하기
+                    <MessageCircle className="ml-2 h-4 w-4" />
+                  </Button>
                 </CardContent>
               </Card>
 

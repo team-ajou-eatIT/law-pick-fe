@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { ArrowLeft, FileText, Search, Sparkles, BookOpen, MessageCircle } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -19,8 +20,24 @@ const CATEGORY_MAP: Record<string, string> = {
   "교육": "education",
 };
 
+// 역방향 매핑 (영어 → 한글)
+const CATEGORY_REVERSE_MAP: Record<string, string> = {
+  "real_estate": "부동산",
+  "finance": "금융",
+  "employment": "취업",
+  "education": "교육",
+};
+
 export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
-  const [selectedCategory, setSelectedCategory] = useState<string>("부동산");
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // URL에서 초기값 가져오기
+  const categoryFromUrl = searchParams.get("category");
+  const lawIdFromUrl = searchParams.get("law_id");
+
+  const [selectedCategory, setSelectedCategory] = useState<string>(
+    categoryFromUrl ? CATEGORY_REVERSE_MAP[categoryFromUrl] || "부동산" : "부동산"
+  );
   const [selectedLaw, setSelectedLaw] = useState<LawListItem | null>(null);
   const [selectedLawData, setSelectedLawData] = useState<LawSummaryResponse | null>(null);
   const [cardNewsData, setCardNewsData] = useState<LawCardsResponse | null>(null);
@@ -29,6 +46,25 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
   const [laws, setLaws] = useState<LawListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingCards, setLoadingCards] = useState(false);
+
+  // URL 파라미터 변경 시 상태 업데이트
+  useEffect(() => {
+    const categoryFromUrl = searchParams.get("category");
+    if (categoryFromUrl && CATEGORY_REVERSE_MAP[categoryFromUrl]) {
+      setSelectedCategory(CATEGORY_REVERSE_MAP[categoryFromUrl]);
+    }
+  }, [searchParams]);
+
+  // URL에 law_id가 있으면 해당 법령 자동 로드
+  useEffect(() => {
+    const lawIdFromUrl = searchParams.get("law_id");
+    if (lawIdFromUrl && laws.length > 0) {
+      const law = laws.find(l => l.law_id === lawIdFromUrl);
+      if (law && law.law_id !== selectedLaw?.law_id) {
+        handleLawSelect(law);
+      }
+    }
+  }, [searchParams, laws]);
 
   // 법령 목록 가져오기
   useEffect(() => {
@@ -53,11 +89,27 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     setLoading(false);
   };
 
+  // 카테고리 변경 핸들러
+  const handleCategoryChange = (category: string) => {
+    setSelectedCategory(category);
+    setSelectedLaw(null);
+    setSelectedLawData(null);
+    setCardNewsData(null);
+
+    // URL 업데이트 (category만 유지, law_id 제거)
+    const categoryEn = CATEGORY_MAP[category];
+    setSearchParams({ category: categoryEn });
+  };
+
   // 법령 상세 가져오기
   const handleLawSelect = async (law: LawListItem) => {
     setSelectedLaw(law);
     setIsAnalyzing(true);
     setCardNewsData(null); // 이전 카드뉴스 초기화
+
+    // URL 업데이트 (category와 law_id 모두 포함)
+    const categoryEn = CATEGORY_MAP[selectedCategory];
+    setSearchParams({ category: categoryEn, law_id: law.law_id });
 
     const response = await getLawDetail(law.law_id);
 
@@ -68,6 +120,17 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     }
 
     setIsAnalyzing(false);
+  };
+
+  // 법령 목록으로 돌아가기
+  const handleBackToList = () => {
+    setSelectedLaw(null);
+    setSelectedLawData(null);
+    setCardNewsData(null);
+
+    // URL 업데이트 (category만 유지, law_id 제거)
+    const categoryEn = CATEGORY_MAP[selectedCategory];
+    setSearchParams({ category: categoryEn });
   };
 
   // 카드뉴스 탭 클릭 시 로드
@@ -130,28 +193,28 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                   <Button
                     variant={selectedCategory === "부동산" ? "default" : "outline"}
                     className="w-full"
-                    onClick={() => setSelectedCategory("부동산")}
+                    onClick={() => handleCategoryChange("부동산")}
                   >
                     부동산
                   </Button>
                   <Button
                     variant={selectedCategory === "금융" ? "default" : "outline"}
                     className="w-full"
-                    onClick={() => setSelectedCategory("금융")}
+                    onClick={() => handleCategoryChange("금융")}
                   >
                     금융
                   </Button>
                   <Button
                     variant={selectedCategory === "취업" ? "default" : "outline"}
                     className="w-full"
-                    onClick={() => setSelectedCategory("취업")}
+                    onClick={() => handleCategoryChange("취업")}
                   >
                     취업
                   </Button>
                   <Button
                     variant={selectedCategory === "교육" ? "default" : "outline"}
                     className="w-full"
-                    onClick={() => setSelectedCategory("교육")}
+                    onClick={() => handleCategoryChange("교육")}
                   >
                     교육
                   </Button>

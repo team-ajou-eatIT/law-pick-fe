@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { ArrowLeft, Users, Calendar, ArrowRight, FileText, Target, BookOpen, ExternalLink, FileSignature, Clock, CheckCircle, Loader2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -15,12 +16,39 @@ interface BillAnalysisPageProps {
 }
 
 export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // URL에서 초기값 가져오기
+  const categoryFromUrl = searchParams.get("category");
+  const billNoFromUrl = searchParams.get("bill_no");
+
   const [selectedBill, setSelectedBill] = useState<YouthProposalDetailUI | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<YouthProposalCategory | 'all'>('all');
+  const [selectedCategory, setSelectedCategory] = useState<YouthProposalCategory | 'all'>(
+    categoryFromUrl ? (categoryFromUrl === 'all' ? 'all' : Number(categoryFromUrl) as YouthProposalCategory) : 'all'
+  );
   const [youthBills, setYouthBills] = useState<YouthProposalListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+
+  // URL 파라미터 변경 시 상태 업데이트
+  useEffect(() => {
+    const categoryFromUrl = searchParams.get("category");
+    if (categoryFromUrl) {
+      setSelectedCategory(categoryFromUrl === 'all' ? 'all' : Number(categoryFromUrl) as YouthProposalCategory);
+    }
+  }, [searchParams]);
+
+  // URL에 bill_no가 있으면 해당 법안 자동 로드
+  useEffect(() => {
+    const billNoFromUrl = searchParams.get("bill_no");
+    if (billNoFromUrl && youthBills.length > 0) {
+      const bill = youthBills.find(b => b.bill_no === billNoFromUrl);
+      if (bill && (!selectedBill || selectedBill.bill_no !== billNoFromUrl)) {
+        handleBillSelect(bill);
+      }
+    }
+  }, [searchParams, youthBills]);
 
   // 청년 안건 목록 로드
   useEffect(() => {
@@ -68,8 +96,29 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
     }
   };
 
+  // 카테고리 변경 핸들러
+  const handleCategoryChange = (category: YouthProposalCategory | 'all') => {
+    setSelectedCategory(category);
+    setSelectedBill(null);
+
+    // URL 업데이트 (category만 유지, bill_no 제거)
+    setSearchParams({ category: String(category) });
+  };
+
+  // 법안 선택 핸들러
   const handleBillSelect = (bill: YouthProposalListItem) => {
     loadBillDetail(bill.bill_no);
+
+    // URL 업데이트 (category와 bill_no 모두 포함)
+    setSearchParams({ category: String(selectedCategory), bill_no: bill.bill_no });
+  };
+
+  // 목록으로 돌아가기
+  const handleBackToList = () => {
+    setSelectedBill(null);
+
+    // URL 업데이트 (category만 유지, bill_no 제거)
+    setSearchParams({ category: String(selectedCategory) });
   };
 
   const categories: Array<YouthProposalCategory | 'all'> = ['all', 1, 2, 3, 4];
@@ -82,7 +131,7 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
         <div className="border-b bg-white sticky top-0 z-10">
           <div className="container mx-auto px-4 py-4">
             <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" onClick={() => setSelectedBill(null)}>
+              <Button variant="ghost" size="icon" onClick={handleBackToList}>
                 <ArrowLeft className="h-5 w-5" />
               </Button>
               <div className="flex items-center gap-3">
@@ -470,7 +519,7 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
                 key={category}
                 variant={selectedCategory === category ? "default" : "outline"}
                 size="sm"
-                onClick={() => setSelectedCategory(category)}
+                onClick={() => handleCategoryChange(category)}
                 disabled={loading}
               >
                 {CATEGORY_NAMES[category]}
@@ -550,7 +599,7 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
             </div>
             <h3 className="text-lg font-semibold mb-2">해당 카테고리의 법안이 없습니다</h3>
             <p className="text-muted-foreground mb-4">다른 카테고리를 선택해보세요.</p>
-            <Button variant="outline" onClick={() => setSelectedCategory('all')}>
+            <Button variant="outline" onClick={() => handleCategoryChange('all')}>
               전체 보기
             </Button>
           </div>

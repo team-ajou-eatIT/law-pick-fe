@@ -481,23 +481,6 @@ function MainPage() {
             {/* Search Bar */}
             <div className="max-w-4xl mx-auto">
               <div className="relative backdrop-blur-[0px] bg-[rgba(140,140,140,0.09)] rounded-[39px] border border-[rgba(140,140,140,0.1)] h-[78px] flex items-center px-4">
-                {/* Back Arrow Button */}
-                <button className="flex-shrink-0 w-[64px] h-[64px] bg-[#424242] rounded-[32px] flex items-center justify-center mr-4 hover:bg-[#555] transition-colors">
-                  <div className="rotate-[-45deg]">
-                    <svg
-                      width="28"
-                      height="14"
-                      fill="none"
-                      viewBox="0 0 28 14"
-                    >
-                      <path
-                        d={svgPaths.p9f5ce00}
-                        fill="white"
-                      />
-                    </svg>
-                  </div>
-                </button>
-
                 {/* Search Input */}
                 <input
                   type="text"

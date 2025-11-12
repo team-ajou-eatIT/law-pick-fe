@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useLocation } from "react-router-dom";
 import { ArrowLeft, Users, Calendar, ArrowRight, FileText, Target, BookOpen, ExternalLink, FileSignature, Clock, CheckCircle, Loader2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -15,29 +15,77 @@ interface BillAnalysisPageProps {
   onBack: () => void;
 }
 
+// 카테고리 문자열 매핑
+const CATEGORY_STRING_MAP: Record<string, YouthProposalCategory> = {
+  'real_estate': 1,
+  'employment': 2,
+  'finance': 3,
+  'education': 4,
+};
+
+// 역방향 매핑 (숫자 → 문자열)
+const CATEGORY_TO_STRING: Record<YouthProposalCategory, string> = {
+  1: 'real_estate',
+  2: 'employment',
+  3: 'finance',
+  4: 'education',
+};
+
+// 카테고리 한글 이름 매핑
+const CATEGORY_KOREAN_NAMES: Record<YouthProposalCategory, string> = {
+  1: '부동산',
+  2: '취업',
+  3: '금융',
+  4: '교육',
+};
+
 export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
 
   // URL에서 초기값 가져오기
   const categoryFromUrl = searchParams.get("category");
   const billNoFromUrl = searchParams.get("bill_no");
 
+  // /analysis/all 경로인지 확인
+  const isAllPath = location.pathname === '/analysis/all' || location.pathname === '/analysis';
+
+  // 선택된 카테고리를 Set으로 관리 (토글 방식)
+  const [selectedCategories, setSelectedCategories] = useState<Set<YouthProposalCategory>>(new Set());
   const [selectedBill, setSelectedBill] = useState<YouthProposalDetailUI | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<YouthProposalCategory | 'all'>(
-    categoryFromUrl ? (categoryFromUrl === 'all' ? 'all' : Number(categoryFromUrl) as YouthProposalCategory) : 'all'
-  );
   const [youthBills, setYouthBills] = useState<YouthProposalListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
-  // URL 파라미터 변경 시 상태 업데이트
+  // URL 파라미터에서 초기 카테고리 설정
   useEffect(() => {
-    const categoryFromUrl = searchParams.get("category");
-    if (categoryFromUrl) {
-      setSelectedCategory(categoryFromUrl === 'all' ? 'all' : Number(categoryFromUrl) as YouthProposalCategory);
+    if (isAllPath && !categoryFromUrl) {
+      // /analysis/all 경로이고 category 파라미터가 없으면 빈 Set으로 시작
+      setSelectedCategories(new Set());
+      return;
     }
-  }, [searchParams]);
+
+    if (categoryFromUrl) {
+      // URL에 category 파라미터가 있으면 파싱
+      const categories = categoryFromUrl.split(',').map(cat => {
+        // 숫자 형식인 경우 (기존 호환성)
+        if (!isNaN(Number(cat))) {
+          return Number(cat) as YouthProposalCategory;
+        }
+        // 문자열 형식인 경우
+        return CATEGORY_STRING_MAP[cat];
+      }).filter((cat): cat is YouthProposalCategory => cat !== undefined);
+
+      if (categories.length > 0) {
+        setSelectedCategories(new Set(categories));
+      } else {
+        setSelectedCategories(new Set());
+      }
+    } else {
+      setSelectedCategories(new Set());
+    }
+  }, [categoryFromUrl, isAllPath]);
 
   // URL에 bill_no가 있으면 해당 법안 자동 로드
   useEffect(() => {
@@ -53,20 +101,33 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
   // 청년 안건 목록 로드
   useEffect(() => {
     loadYouthBills();
-  }, [selectedCategory]);
+  }, [selectedCategories]);
 
   const loadYouthBills = async () => {
     setLoading(true);
     setError(null);
     
     try {
-      const category = selectedCategory === 'all' ? undefined : selectedCategory;
+      // 선택된 카테고리가 없으면 전체 조회 (undefined 전달)
+      // 선택된 카테고리가 있으면 첫 번째 카테고리로 조회 (API가 단일 카테고리만 지원하는 경우)
+      // 여러 카테고리를 지원하려면 API 수정이 필요하지만, 일단 첫 번째 카테고리만 사용
+      const category = selectedCategories.size === 0 
+        ? undefined 
+        : Array.from(selectedCategories)[0];
+      
       const response = await getYouthProposals(category);
       
       if (response.error) {
         setError(response.error);
       } else if (response.data) {
-        setYouthBills(response.data.proposals);
+        // 선택된 카테고리가 있으면 필터링
+        let filtered = response.data.proposals;
+        if (selectedCategories.size > 0) {
+          filtered = filtered.filter(bill => 
+            selectedCategories.has(bill.is_youth_proposal)
+          );
+        }
+        setYouthBills(filtered);
       }
     } catch (err) {
       setError('청년 안건 목록을 불러오는데 실패했습니다.');
@@ -96,13 +157,30 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
     }
   };
 
-  // 카테고리 변경 핸들러
-  const handleCategoryChange = (category: YouthProposalCategory | 'all') => {
-    setSelectedCategory(category);
+  // 카테고리 토글 핸들러
+  const handleCategoryToggle = (category: YouthProposalCategory) => {
     setSelectedBill(null);
+    const newCategories = new Set(selectedCategories);
+    
+    if (newCategories.has(category)) {
+      // 이미 선택된 경우 제거
+      newCategories.delete(category);
+    } else {
+      // 선택되지 않은 경우 추가
+      newCategories.add(category);
+    }
+    
+    setSelectedCategories(newCategories);
 
-    // URL 업데이트 (category만 유지, bill_no 제거)
-    setSearchParams({ category: String(category) });
+    // URL 업데이트
+    if (newCategories.size === 0) {
+      // 선택된 카테고리가 없으면 category 파라미터 제거
+      setSearchParams({}, { replace: true });
+    } else {
+      // 선택된 카테고리를 문자열로 변환하여 URL에 추가
+      const categoryStrings = Array.from(newCategories).map(cat => CATEGORY_TO_STRING[cat]);
+      setSearchParams({ category: categoryStrings.join(',') }, { replace: true });
+    }
   };
 
   // 법안 선택 핸들러
@@ -110,7 +188,12 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
     loadBillDetail(bill.bill_no);
 
     // URL 업데이트 (category와 bill_no 모두 포함)
-    setSearchParams({ category: String(selectedCategory), bill_no: bill.bill_no });
+    const categoryStrings = Array.from(selectedCategories).map(cat => CATEGORY_TO_STRING[cat]);
+    const params: Record<string, string> = { bill_no: bill.bill_no };
+    if (categoryStrings.length > 0) {
+      params.category = categoryStrings.join(',');
+    }
+    setSearchParams(params);
   };
 
   // 목록으로 돌아가기
@@ -118,10 +201,15 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
     setSelectedBill(null);
 
     // URL 업데이트 (category만 유지, bill_no 제거)
-    setSearchParams({ category: String(selectedCategory) });
+    const categoryStrings = Array.from(selectedCategories).map(cat => CATEGORY_TO_STRING[cat]);
+    if (categoryStrings.length > 0) {
+      setSearchParams({ category: categoryStrings.join(',') });
+    } else {
+      setSearchParams({}, { replace: true });
+    }
   };
 
-  const categories: Array<YouthProposalCategory | 'all'> = ['all', 1, 2, 3, 4];
+  const categories: YouthProposalCategory[] = [1, 2, 3, 4];
   const filteredBills = youthBills;
 
   if (selectedBill) {
@@ -517,12 +605,12 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
             {categories.map((category) => (
               <Button
                 key={category}
-                variant={selectedCategory === category ? "default" : "outline"}
+                variant={selectedCategories.has(category) ? "default" : "outline"}
                 size="sm"
-                onClick={() => handleCategoryChange(category)}
+                onClick={() => handleCategoryToggle(category)}
                 disabled={loading}
               >
-                {CATEGORY_NAMES[category]}
+                {CATEGORY_KOREAN_NAMES[category]}
               </Button>
             ))}
           </div>

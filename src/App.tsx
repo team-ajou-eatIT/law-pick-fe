@@ -34,7 +34,9 @@ export default function App() {
       <Route path="/search" element={<SearchPage />} />
       <Route path="/chatbot" element={<ChatBotPageWrapper />} />
       <Route path="/summary" element={<LawSummaryPageWrapper />} />
+      <Route path="/summary/all" element={<LawSummaryPageWrapper />} />
       <Route path="/analysis" element={<BillAnalysisPageWrapper />} />
+      <Route path="/analysis/all" element={<BillAnalysisPageWrapper />} />
     </Routes>
   );
 }
@@ -710,8 +712,8 @@ function MainPage() {
               {features.map((feature, index) => {
                 const Icon = feature.icon;
                 const pageMap: { [key: string]: string } = {
-                  "AI 법률 요약 & 쉬운말 해설": "summary",
-                  "국회 가결안 청년 맞춤 분석": "analysis",
+                  "AI 법률 요약 & 쉬운말 해설": "summary/all",
+                  "국회 가결안 청년 맞춤 분석": "analysis/all",
                 };
                 return (
                   <Card

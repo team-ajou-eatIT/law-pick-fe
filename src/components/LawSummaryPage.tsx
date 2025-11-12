@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useLocation } from "react-router-dom";
 import { ArrowLeft, FileText, Search, Sparkles, BookOpen, MessageCircle } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -30,13 +30,18 @@ const CATEGORY_REVERSE_MAP: Record<string, string> = {
 
 export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
 
   // URL에서 초기값 가져오기
   const categoryFromUrl = searchParams.get("category");
   const lawIdFromUrl = searchParams.get("law_id");
 
-  const [selectedCategory, setSelectedCategory] = useState<string>(
-    categoryFromUrl ? CATEGORY_REVERSE_MAP[categoryFromUrl] || "부동산" : "부동산"
+  // /summary/all 경로인지 확인
+  const isAllPath = location.pathname === '/summary/all' || location.pathname === '/summary';
+
+  // /summary/all 경로이고 category가 없으면 null로 시작 (부동산이 기본 선택되지 않음)
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(
+    categoryFromUrl ? (CATEGORY_REVERSE_MAP[categoryFromUrl] || null) : (isAllPath ? null : "부동산")
   );
   const [selectedLaw, setSelectedLaw] = useState<LawListItem | null>(null);
   const [selectedLawData, setSelectedLawData] = useState<LawSummaryResponse | null>(null);
@@ -52,8 +57,11 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     const categoryFromUrl = searchParams.get("category");
     if (categoryFromUrl && CATEGORY_REVERSE_MAP[categoryFromUrl]) {
       setSelectedCategory(CATEGORY_REVERSE_MAP[categoryFromUrl]);
+    } else if (isAllPath && !categoryFromUrl) {
+      // /summary/all 경로이고 category가 없으면 null로 설정
+      setSelectedCategory(null);
     }
-  }, [searchParams]);
+  }, [searchParams, isAllPath]);
 
   // URL에 law_id가 있으면 해당 법령 자동 로드
   useEffect(() => {
@@ -68,10 +76,17 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
 
   // 법령 목록 가져오기
   useEffect(() => {
-    loadLaws();
+    if (selectedCategory) {
+      loadLaws();
+    } else {
+      // 카테고리가 선택되지 않았으면 목록 초기화
+      setLaws([]);
+    }
   }, [selectedCategory]);
 
   const loadLaws = async () => {
+    if (!selectedCategory) return;
+    
     setLoading(true);
     const categoryEn = CATEGORY_MAP[selectedCategory];
 

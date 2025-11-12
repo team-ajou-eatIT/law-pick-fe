@@ -39,10 +39,8 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
   // /summary/all 경로인지 확인
   const isAllPath = location.pathname === '/summary/all' || location.pathname === '/summary';
 
-  // /summary/all 경로이고 category가 없으면 null로 시작 (부동산이 기본 선택되지 않음)
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(
-    categoryFromUrl ? (CATEGORY_REVERSE_MAP[categoryFromUrl] || null) : (isAllPath ? null : "부동산")
-  );
+  // 선택된 카테고리를 Set으로 관리 (토글 방식)
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [selectedLaw, setSelectedLaw] = useState<LawListItem | null>(null);
   const [selectedLawData, setSelectedLawData] = useState<LawSummaryResponse | null>(null);
   const [cardNewsData, setCardNewsData] = useState<LawCardsResponse | null>(null);
@@ -52,16 +50,29 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
   const [loading, setLoading] = useState(false);
   const [loadingCards, setLoadingCards] = useState(false);
 
-  // URL 파라미터 변경 시 상태 업데이트
+  // URL 파라미터에서 초기 카테고리 설정
   useEffect(() => {
-    const categoryFromUrl = searchParams.get("category");
-    if (categoryFromUrl && CATEGORY_REVERSE_MAP[categoryFromUrl]) {
-      setSelectedCategory(CATEGORY_REVERSE_MAP[categoryFromUrl]);
-    } else if (isAllPath && !categoryFromUrl) {
-      // /summary/all 경로이고 category가 없으면 null로 설정
-      setSelectedCategory(null);
+    if (isAllPath && !categoryFromUrl) {
+      // /summary/all 경로이고 category 파라미터가 없으면 빈 Set으로 시작
+      setSelectedCategories(new Set());
+      return;
     }
-  }, [searchParams, isAllPath]);
+
+    if (categoryFromUrl) {
+      // URL에 category 파라미터가 있으면 파싱
+      const categories = categoryFromUrl.split(',').map(cat => {
+        return CATEGORY_REVERSE_MAP[cat];
+      }).filter((cat): cat is string => cat !== undefined);
+
+      if (categories.length > 0) {
+        setSelectedCategories(new Set(categories));
+      } else {
+        setSelectedCategories(new Set());
+      }
+    } else {
+      setSelectedCategories(new Set());
+    }
+  }, [categoryFromUrl, isAllPath]);
 
   // URL에 law_id가 있으면 해당 법령 자동 로드
   useEffect(() => {
@@ -76,44 +87,73 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
 
   // 법령 목록 가져오기
   useEffect(() => {
-    if (selectedCategory) {
-      loadLaws();
-    } else {
-      // 카테고리가 선택되지 않았으면 목록 초기화
-      setLaws([]);
-    }
-  }, [selectedCategory]);
+    loadLaws();
+  }, [selectedCategories]);
 
   const loadLaws = async () => {
-    if (!selectedCategory) return;
-    
     setLoading(true);
-    const categoryEn = CATEGORY_MAP[selectedCategory];
+    
+    try {
+      // 선택된 카테고리가 없으면 전체 조회 (category 파라미터 없이)
+      // 선택된 카테고리가 있으면 첫 번째 카테고리로 조회 (API가 단일 카테고리만 지원하는 경우)
+      // 여러 카테고리를 지원하려면 API 수정이 필요하지만, 일단 첫 번째 카테고리만 사용
+      const category = selectedCategories.size === 0 
+        ? undefined 
+        : CATEGORY_MAP[Array.from(selectedCategories)[0]];
+      
+      const response = await getLawList({
+        category,
+        page: 1,
+        size: 50
+      });
 
-    const response = await getLawList({
-      category: categoryEn,
-      page: 1,
-      size: 50
-    });
-
-    if (response.data) {
-      setLaws(response.data.items);
-    } else {
-      console.error("법령 목록 로드 실패:", response.error);
+      if (response.data) {
+        // 선택된 카테고리가 있으면 필터링
+        let filtered = response.data.items;
+        if (selectedCategories.size > 0) {
+          const categoryKoreans = Array.from(selectedCategories);
+          filtered = filtered.filter(law => 
+            categoryKoreans.includes(law.category)
+          );
+        }
+        setLaws(filtered);
+      } else {
+        console.error("법령 목록 로드 실패:", response.error);
+      }
+    } catch (err) {
+      console.error("법령 목록 로드 중 오류:", err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
-  // 카테고리 변경 핸들러
-  const handleCategoryChange = (category: string) => {
-    setSelectedCategory(category);
+  // 카테고리 토글 핸들러
+  const handleCategoryToggle = (category: string) => {
     setSelectedLaw(null);
     setSelectedLawData(null);
     setCardNewsData(null);
+    
+    const newCategories = new Set(selectedCategories);
+    
+    if (newCategories.has(category)) {
+      // 이미 선택된 경우 제거
+      newCategories.delete(category);
+    } else {
+      // 선택되지 않은 경우 추가
+      newCategories.add(category);
+    }
+    
+    setSelectedCategories(newCategories);
 
-    // URL 업데이트 (category만 유지, law_id 제거)
-    const categoryEn = CATEGORY_MAP[category];
-    setSearchParams({ category: categoryEn });
+    // URL 업데이트
+    if (newCategories.size === 0) {
+      // 선택된 카테고리가 없으면 category 파라미터 제거
+      setSearchParams({}, { replace: true });
+    } else {
+      // 선택된 카테고리를 문자열로 변환하여 URL에 추가
+      const categoryStrings = Array.from(newCategories).map(cat => CATEGORY_MAP[cat]);
+      setSearchParams({ category: categoryStrings.join(',') }, { replace: true });
+    }
   };
 
   // 법령 상세 가져오기
@@ -123,8 +163,12 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     setCardNewsData(null); // 이전 카드뉴스 초기화
 
     // URL 업데이트 (category와 law_id 모두 포함)
-    const categoryEn = CATEGORY_MAP[selectedCategory];
-    setSearchParams({ category: categoryEn, law_id: law.law_id });
+    const categoryStrings = Array.from(selectedCategories).map(cat => CATEGORY_MAP[cat]);
+    const params: Record<string, string> = { law_id: law.law_id };
+    if (categoryStrings.length > 0) {
+      params.category = categoryStrings.join(',');
+    }
+    setSearchParams(params);
 
     const response = await getLawDetail(law.law_id);
 
@@ -144,8 +188,12 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     setCardNewsData(null);
 
     // URL 업데이트 (category만 유지, law_id 제거)
-    const categoryEn = CATEGORY_MAP[selectedCategory];
-    setSearchParams({ category: categoryEn });
+    const categoryStrings = Array.from(selectedCategories).map(cat => CATEGORY_MAP[cat]);
+    if (categoryStrings.length > 0) {
+      setSearchParams({ category: categoryStrings.join(',') });
+    } else {
+      setSearchParams({}, { replace: true });
+    }
   };
 
   // 카드뉴스 탭 클릭 시 로드
@@ -206,30 +254,30 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                 {/* 카테고리 버튼 */}
                 <div className="grid grid-cols-2 gap-2">
                   <Button
-                    variant={selectedCategory === "부동산" ? "default" : "outline"}
+                    variant={selectedCategories.has("부동산") ? "default" : "outline"}
                     className="w-full"
-                    onClick={() => handleCategoryChange("부동산")}
+                    onClick={() => handleCategoryToggle("부동산")}
                   >
                     부동산
                   </Button>
                   <Button
-                    variant={selectedCategory === "금융" ? "default" : "outline"}
+                    variant={selectedCategories.has("금융") ? "default" : "outline"}
                     className="w-full"
-                    onClick={() => handleCategoryChange("금융")}
+                    onClick={() => handleCategoryToggle("금융")}
                   >
                     금융
                   </Button>
                   <Button
-                    variant={selectedCategory === "취업" ? "default" : "outline"}
+                    variant={selectedCategories.has("취업") ? "default" : "outline"}
                     className="w-full"
-                    onClick={() => handleCategoryChange("취업")}
+                    onClick={() => handleCategoryToggle("취업")}
                   >
                     취업
                   </Button>
                   <Button
-                    variant={selectedCategory === "교육" ? "default" : "outline"}
+                    variant={selectedCategories.has("교육") ? "default" : "outline"}
                     className="w-full"
-                    onClick={() => handleCategoryChange("교육")}
+                    onClick={() => handleCategoryToggle("교육")}
                   >
                     교육
                   </Button>

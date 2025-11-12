@@ -94,12 +94,11 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     setLoading(true);
     
     try {
-      // 선택된 카테고리가 없으면 전체 조회 (category 파라미터 없이)
-      // 선택된 카테고리가 있으면 첫 번째 카테고리로 조회 (API가 단일 카테고리만 지원하는 경우)
-      // 여러 카테고리를 지원하려면 API 수정이 필요하지만, 일단 첫 번째 카테고리만 사용
-      const category = selectedCategories.size === 0 
-        ? undefined 
-        : CATEGORY_MAP[Array.from(selectedCategories)[0]];
+      // 선택된 카테고리가 없거나 여러 개면 전체 조회 (category 파라미터 없이)
+      // 선택된 카테고리가 하나면 해당 카테고리만 조회
+      const category = selectedCategories.size === 1 
+        ? CATEGORY_MAP[Array.from(selectedCategories)[0]]
+        : undefined;
       
       const response = await getLawList({
         category,

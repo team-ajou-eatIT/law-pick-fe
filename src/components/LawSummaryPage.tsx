@@ -135,19 +135,19 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     }
   };
 
-  // 카테고리 토글 핸들러
+  // 카테고리 토글 핸들러 (단일 선택만 가능)
   const handleCategoryToggle = (category: string) => {
     setSelectedLaw(null);
     setSelectedLawData(null);
     setCardNewsData(null);
     
-    const newCategories = new Set(selectedCategories);
+    const newCategories = new Set<string>();
     
-    if (newCategories.has(category)) {
-      // 이미 선택된 경우 제거
-      newCategories.delete(category);
+    if (selectedCategories.has(category)) {
+      // 이미 선택된 경우 제거 (전체 보기)
+      // newCategories는 빈 Set
     } else {
-      // 선택되지 않은 경우 추가
+      // 선택되지 않은 경우 해당 카테고리만 추가 (기존 선택 무시)
       newCategories.add(category);
     }
     

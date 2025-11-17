@@ -56,7 +56,18 @@ export function ChatBotPage({ onBack }: ChatBotPageProps) {
 
   const handleSendMessage = async (content?: string) => {
     const messageContent = content || inputValue;
-    if (!messageContent.trim() || !threadId) return;
+    if (!messageContent.trim()) return;
+    
+    if (!threadId) {
+      const errorMessage: Message = {
+        id: messages.length + 1,
+        content: '죄송합니다. 대화 세션 생성 중 오류가 발생했습니다. 페이지를 새로고침해 주세요.',
+        sender: 'bot',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+      return;
+    }
 
     const newUserMessage: Message = {
       id: messages.length + 1,
@@ -113,7 +124,7 @@ export function ChatBotPage({ onBack }: ChatBotPageProps) {
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
@@ -273,7 +284,7 @@ export function ChatBotPage({ onBack }: ChatBotPageProps) {
               <Input
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                onKeyPress={handleKeyPress}
+                onKeyDown={handleKeyDown}
                 placeholder="법률 관련 질문을 입력하세요..."
                 className="flex-1 h-12 text-base"
                 disabled={isLoading}

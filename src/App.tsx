@@ -74,7 +74,7 @@ function MainPage() {
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       handleSearch();
     }
@@ -572,7 +572,7 @@ function MainPage() {
                   onChange={(e) =>
                     setSearchQuery(e.target.value)
                   }
-                  onKeyPress={handleKeyPress}
+                  onKeyDown={handleKeyDown}
                   className="flex-1 bg-transparent border-none outline-none text-[#424242] placeholder:text-[#424242]"
                   style={{
                     fontSize: "20px",

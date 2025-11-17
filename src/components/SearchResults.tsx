@@ -23,7 +23,7 @@ export function SearchResults({ searchQuery, onBack, onNewSearch }: SearchResult
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleSearch();
     }
@@ -152,7 +152,7 @@ export function SearchResults({ searchQuery, onBack, onNewSearch }: SearchResult
                 placeholder="법률, 정책, 판례 등을 검색해보세요..."
                 value={currentQuery}
                 onChange={(e) => setCurrentQuery(e.target.value)}
-                onKeyPress={handleKeyPress}
+                onKeyDown={handleKeyDown}
                 className="w-full h-12 pl-4 pr-16 rounded-full border-2 border-primary/20 focus:border-primary"
               />
               <Button

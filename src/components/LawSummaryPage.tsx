@@ -43,7 +43,6 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
 
   // URL에서 초기값 가져오기
   const categoryFromUrl = searchParams.get("category");
-  const lawIdFromUrl = searchParams.get("law_id");
 
   // /summary/all 경로인지 확인
   const isAllPath = location.pathname === '/summary/all' || location.pathname === '/summary';
@@ -190,7 +189,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
   };
 
   // 법령 목록으로 돌아가기
-  const handleBackToList = () => {
+  const _handleBackToList = () => {
     setSelectedLaw(null);
     setSelectedLawData(null);
     setCardNewsData(null);

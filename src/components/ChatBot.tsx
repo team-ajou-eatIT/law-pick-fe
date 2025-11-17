@@ -62,7 +62,7 @@ export function ChatBot() {
     }, 1000);
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
@@ -123,7 +123,7 @@ export function ChatBot() {
           <Input
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyDown}
             placeholder="법률 관련 질문을 입력하세요..."
             className="flex-1"
           />
@@ -143,3 +143,4 @@ export function ChatBot() {
     </div>
   );
 }
+

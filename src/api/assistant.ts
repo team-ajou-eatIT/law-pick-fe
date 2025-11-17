@@ -18,7 +18,7 @@ export interface QueryRequest {
 export interface Document {
   source: string;
   preview: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export interface QueryResponse {
@@ -29,7 +29,7 @@ export interface QueryResponse {
   documents: Document[];
   used_web_search: boolean;
   latency_ms: number;
-  debug: any;
+  debug: unknown;
 }
 
 // API 함수들

@@ -70,6 +70,48 @@ export async function get<T>(
 }
 
 /**
+ * GET 요청 (텍스트 응답)
+ */
+export async function getText(
+  endpoint: string,
+  params?: Record<string, string | number | undefined>
+): Promise<ApiResponse<string>> {
+  const queryString = params
+    ? '?' +
+      new URLSearchParams(
+        Object.entries(params)
+          .filter(([_, value]) => value !== undefined)
+          .map(([key, value]) => [key, String(value)])
+      ).toString()
+    : '';
+
+  try {
+    const response = await fetch(`${API_BASE_URL}${endpoint}${queryString}`, {
+      method: 'GET',
+    });
+    const text = await response.text();
+
+    if (!response.ok) {
+      return {
+        error: text || `HTTP ${response.status}: ${response.statusText}`,
+        status: response.status,
+      };
+    }
+
+    return {
+      data: text,
+      status: response.status,
+    };
+  } catch (error) {
+    console.error('API 호출 오류:', error);
+    return {
+      error: error instanceof Error ? error.message : 'Network error',
+      status: 0,
+    };
+  }
+}
+
+/**
  * POST 요청
  */
 export async function post<T>(

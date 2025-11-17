@@ -8,7 +8,6 @@ import type {
   YouthProposalDetail,
   YouthProposalDetailUI,
   YouthProposalCategory,
-  CATEGORY_NAMES,
   Source,
 } from '../types/youth-proposal';
 

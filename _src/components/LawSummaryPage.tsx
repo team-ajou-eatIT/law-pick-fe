@@ -4,7 +4,6 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
-import { Textarea } from "./ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { ScrollArea } from "./ui/scroll-area";
 
@@ -12,9 +11,18 @@ interface LawSummaryPageProps {
   onBack: () => void;
 }
 
+interface Law {
+  id: number;
+  title: string;
+  category: string;
+  lastUpdate: string;
+  summary: string;
+  difficulty: string;
+}
+
 export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedLaw, setSelectedLaw] = useState<any>(null);
+  const [selectedLaw, setSelectedLaw] = useState<Law | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const lawDatabase = [
@@ -119,7 +127,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     }
   };
 
-  const handleLawSelect = (law: any) => {
+  const handleLawSelect = (law: Law) => {
     setSelectedLaw(law);
     analyzeSelectedLaw();
   };

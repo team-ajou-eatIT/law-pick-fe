@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Search, ArrowLeft, FileText, BookOpen, Newspaper, Filter, ChevronDown } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Badge } from "./ui/badge";

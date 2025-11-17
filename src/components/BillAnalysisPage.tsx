@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSearchParams, useLocation } from "react-router-dom";
 import { ArrowLeft, Users, Calendar, ArrowRight, FileText, Target, BookOpen, ExternalLink, FileSignature, Clock, CheckCircle, Loader2 } from "lucide-react";
 import { Button } from "./ui/button";
@@ -39,13 +39,40 @@ const CATEGORY_KOREAN_NAMES: Record<YouthProposalCategory, string> = {
   4: '교육',
 };
 
+const YOUTH_LIST_CACHE_KEY = 'law-pick-youth-proposals-cache-v1';
+const YOUTH_LIST_CACHE_TTL_MS = 1000 * 60 * 60 * 6; // 6시간
+
+type YouthProposalsCache = {
+  updatedAt: string;
+  proposals: YouthProposalListItem[];
+};
+
+type ErrorState = {
+  message: string;
+  detail?: string;
+  kind: 'network' | 'cache' | 'general';
+};
+
+const formatCacheTimestamp = (iso: string) => {
+  try {
+    return new Intl.DateTimeFormat('ko-KR', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(new Date(iso));
+  } catch {
+    return iso;
+  }
+};
+
 export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
 
   // URL에서 초기값 가져오기
   const categoryFromUrl = searchParams.get("category");
-  const billNoFromUrl = searchParams.get("bill_no");
 
   // /analysis/all 경로인지 확인
   const isAllPath = location.pathname === '/analysis/all' || location.pathname === '/analysis';
@@ -55,8 +82,124 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
   const [selectedBill, setSelectedBill] = useState<YouthProposalDetailUI | null>(null);
   const [youthBills, setYouthBills] = useState<YouthProposalListItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ErrorState | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [cacheNotice, setCacheNotice] = useState<string | null>(null);
+
+  const persistListCache = useCallback((proposals: YouthProposalListItem[]) => {
+    if (typeof window === 'undefined') return;
+    try {
+      const payload: YouthProposalsCache = {
+        updatedAt: new Date().toISOString(),
+        proposals,
+      };
+      window.localStorage.setItem(YOUTH_LIST_CACHE_KEY, JSON.stringify(payload));
+    } catch (err) {
+      console.warn('Failed to cache youth proposals:', err);
+    }
+  }, []);
+
+  const readListCache = useCallback((): YouthProposalsCache | null => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const cachedRaw = window.localStorage.getItem(YOUTH_LIST_CACHE_KEY);
+      if (!cachedRaw) return null;
+      const payload = JSON.parse(cachedRaw) as YouthProposalsCache;
+      if (!payload?.updatedAt || !Array.isArray(payload.proposals)) {
+        return null;
+      }
+      const timestamp = new Date(payload.updatedAt).getTime();
+      if (Number.isNaN(timestamp)) {
+        return null;
+      }
+      if (Date.now() - timestamp > YOUTH_LIST_CACHE_TTL_MS) {
+        window.localStorage.removeItem(YOUTH_LIST_CACHE_KEY);
+        return null;
+      }
+      return payload;
+    } catch (err) {
+      console.warn('Failed to read youth proposals cache:', err);
+      return null;
+    }
+  }, []);
+
+  const filterBySelection = useCallback(
+    (proposals: YouthProposalListItem[]) => {
+      if (selectedCategories.size === 0) {
+        return proposals;
+      }
+      return proposals.filter((bill) => selectedCategories.has(bill.is_youth_proposal));
+    },
+    [selectedCategories]
+  );
+
+  const attemptCacheFallback = useCallback(
+    (reason?: string) => {
+      const cached = readListCache();
+      if (!cached) {
+        return false;
+      }
+      const filtered = filterBySelection(cached.proposals);
+      setYouthBills(filtered);
+      setCacheNotice(cached.updatedAt);
+      setError({
+        kind: 'cache',
+        message: '실시간 데이터를 불러오지 못해 최근 저장된 데이터를 표시합니다.',
+        detail: reason && reason !== 'Failed to fetch' ? reason : undefined,
+      });
+      return true;
+    },
+    [filterBySelection, readListCache]
+  );
+
+  const loadYouthBills = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const category =
+        selectedCategories.size === 1 ? Array.from(selectedCategories)[0] : undefined;
+
+      const response = await getYouthProposals(category);
+
+      if (response.error) {
+        if (!attemptCacheFallback(response.error)) {
+          setError({
+            kind: response.error === 'Failed to fetch' ? 'network' : 'general',
+            message:
+              response.error === 'Failed to fetch'
+                ? '데이터 서버에 연결하지 못했습니다. 잠시 후 다시 시도해주세요.'
+                : response.error,
+            detail: response.error === 'Failed to fetch' ? undefined : response.error,
+          });
+          setCacheNotice(null);
+        }
+        return;
+      }
+
+      if (response.data) {
+        const filtered = filterBySelection(response.data.proposals);
+        setYouthBills(filtered);
+        setCacheNotice(null);
+
+        if (selectedCategories.size === 0) {
+          persistListCache(response.data.proposals);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load youth proposals:', err);
+      if (!attemptCacheFallback(err instanceof Error ? err.message : '요청 실패')) {
+        setError({
+          kind: 'general',
+          message: '청년 안건 목록을 불러오는데 실패했습니다.',
+          detail: err instanceof Error ? err.message : undefined,
+        });
+        setCacheNotice(null);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [attemptCacheFallback, filterBySelection, persistListCache, selectedCategories]);
 
   // URL 파라미터에서 초기 카테고리 설정
   useEffect(() => {
@@ -96,44 +239,13 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
         handleBillSelect(bill);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, youthBills]);
 
   // 청년 안건 목록 로드
   useEffect(() => {
     loadYouthBills();
-  }, [selectedCategories]);
-
-  const loadYouthBills = async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      // 선택된 카테고리가 없거나 여러 개면 전체 조회 (undefined 전달)
-      // 선택된 카테고리가 하나면 해당 카테고리만 조회
-      const category = selectedCategories.size === 1 
-        ? Array.from(selectedCategories)[0]
-        : undefined;
-      
-      const response = await getYouthProposals(category);
-      
-      if (response.error) {
-        setError(response.error);
-      } else if (response.data) {
-        // 선택된 카테고리가 있으면 필터링
-        let filtered = response.data.proposals;
-        if (selectedCategories.size > 0) {
-          filtered = filtered.filter(bill => 
-            selectedCategories.has(bill.is_youth_proposal)
-          );
-        }
-        setYouthBills(filtered);
-      }
-    } catch (err) {
-      setError('청년 안건 목록을 불러오는데 실패했습니다.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [loadYouthBills]);
 
   // 청년 안건 상세 정보 로드
   const loadBillDetail = async (billNo: string) => {
@@ -144,13 +256,24 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
       const response = await getYouthProposalDetail(billNo);
       
       if (response.error) {
-        setError(response.error);
+        setError({
+          kind: response.error === 'Failed to fetch' ? 'network' : 'general',
+          message:
+            response.error === 'Failed to fetch'
+              ? '법안 상세 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.'
+              : response.error,
+          detail: response.error === 'Failed to fetch' ? undefined : response.error,
+        });
       } else if (response.data) {
         const transformedDetail = transformYouthProposalForUI(response.data);
         setSelectedBill(transformedDetail);
       }
     } catch (err) {
-      setError('청년 안건 상세 정보를 불러오는데 실패했습니다.');
+      setError({
+        kind: 'general',
+        message: '청년 안건 상세 정보를 불러오는데 실패했습니다.',
+        detail: err instanceof Error ? err.message : undefined,
+      });
     } finally {
       setDetailLoading(false);
     }
@@ -589,8 +712,43 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
       <div className="container mx-auto px-4 py-8 max-w-6xl">
         {/* 에러 메시지 */}
         {error && (
-          <Alert className="mb-6" variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
+          <Alert
+            className="mb-6"
+            variant={error.kind === 'cache' ? 'default' : 'destructive'}
+          >
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <AlertDescription className="flex-1">
+                {error.message}
+                {error.detail && error.detail !== error.message && (
+                  <span className="mt-1 block text-xs text-muted-foreground break-words">
+                    상세: {error.detail}
+                  </span>
+                )}
+              </AlertDescription>
+              <div className="flex gap-2 flex-shrink-0">
+                <Button size="sm" variant="outline" onClick={loadYouthBills} disabled={loading}>
+                  다시 시도
+                </Button>
+                {error.kind === 'network' && (
+                  <Button size="sm" variant="outline" asChild>
+                    <a
+                      href="https://api.law-pick.me/healthz"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      상태 확인
+                    </a>
+                  </Button>
+                )}
+              </div>
+            </div>
+          </Alert>
+        )}
+        {cacheNotice && (
+          <Alert className="mb-6" variant="default">
+            <AlertDescription>
+              최근 {formatCacheTimestamp(cacheNotice)} 기준 저장된 데이터를 표시하고 있습니다.
+            </AlertDescription>
           </Alert>
         )}
 

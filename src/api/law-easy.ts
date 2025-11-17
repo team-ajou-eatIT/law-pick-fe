@@ -16,26 +16,35 @@ simple_terms: Array<{
 }
 
 export interface LawSummaryResponse {
-law_id: string;
-title: string;
-summary: SummaryCard[];
-compare?: {
+  law_id: string;
+  title?: string;
+  start_date?: string;
+  summary: SummaryCard[];
+  compare?: {
     before: string;
     after: string;
-} | null;
-original_link?: string;
-cached: boolean;
-generated_at: string;
-model_used?: string;
+  } | null;
+  original_link?: string;
+  card_cover_url?: string;
+  one_line_summary?: string | null;
+  responsible_ministry?: string | null;
+  markdown?: string | null;
+  original_content?: string | null;
+  cards?: SummaryCard[];
+  cached: boolean;
+  generated_at?: string;
+  model_used?: string;
 }
 
 export interface LawListItem {
-law_id: string;
-title: string;
-start_date: string;
-short_desc: string;
-category: string;
-card_cover_url?: string;
+  law_id: string;
+  title: string;
+  start_date: string;
+  short_desc: string;
+  category: string;
+  card_cover_url?: string;
+  responsible_ministry?: string;
+  one_line_summary?: string | null;
 }
 
 export interface LawListResponse {

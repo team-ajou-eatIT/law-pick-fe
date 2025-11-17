@@ -1,11 +1,15 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useLocation } from "react-router-dom";
-import { ArrowLeft, FileText, Search, Sparkles, BookOpen, MessageCircle } from "lucide-react";
+import { ArrowLeft, FileText, Search, Sparkles, BookOpen, MessageCircle, Copy, ExternalLink } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { ScrollArea } from "./ui/scroll-area";
+import { Badge } from "./ui/badge";
+import { API_BASE_URL } from "../api/config";
 import { getLawList, getLawDetail, getLawCards, type LawListItem, type LawSummaryResponse, type LawCardsResponse } from "../api/law-easy";
 
 interface LawSummaryPageProps {
@@ -26,6 +30,11 @@ const CATEGORY_REVERSE_MAP: Record<string, string> = {
   "finance": "금융",
   "employment": "취업",
   "education": "교육",
+};
+
+const getCategoryLabel = (value?: string | null) => {
+  if (!value) return "기타";
+  return CATEGORY_REVERSE_MAP[value] || value;
 };
 
 export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
@@ -216,11 +225,17 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
   };
 
   // 검색 필터링
-  const filteredLaws = laws.filter(law =>
-    searchQuery === "" ||
-    law.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    law.short_desc?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const filteredLaws = laws.filter((law) => {
+    if (normalizedQuery === "") return true;
+    const targets = [
+      law.title,
+      law.short_desc,
+      law.one_line_summary,
+      law.responsible_ministry
+    ];
+    return targets.some((value) => value?.toLowerCase().includes(normalizedQuery));
+  });
 
   return (
     <div className="min-h-screen bg-background">
@@ -316,19 +331,21 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                             }`}
                             onClick={() => handleLawSelect(law)}
                           >
-                            <CardContent className="p-4">
-                              <div className="space-y-2">
-                                <h5 className="font-medium text-sm">{law.title}</h5>
-                                {law.short_desc && (
-                                  <p className="text-xs text-muted-foreground line-clamp-2">
-                                    {law.short_desc}
-                                  </p>
-                                )}
-                                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                  <span>{law.category}</span>
-                                  <span>{law.start_date}</span>
-                                </div>
+                            <CardContent className="p-4 space-y-2">
+                              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                <span>{getCategoryLabel(law.category)}</span>
+                                <span>{law.start_date || '-'}</span>
                               </div>
+                              {/* 제목: 소관부처 */}
+                              <h5 className="font-medium text-sm">
+                                {law.responsible_ministry || law.title}
+                              </h5>
+                              {/* 부제: 한줄요약 */}
+                              {law.one_line_summary && (
+                                <p className="text-xs text-muted-foreground line-clamp-2">
+                                  {law.one_line_summary}
+                                </p>
+                              )}
                             </CardContent>
                           </Card>
                         ))}
@@ -370,68 +387,148 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                     </CardContent>
                   </Card>
                 ) : selectedLawData ? (
-                  <Tabs defaultValue="easy" className="w-full" onValueChange={(value) => {
-                    if (value === "cardnews") loadCardNews();
-                  }}>
-                    <TabsList className="grid w-full grid-cols-2">
+                  <Tabs
+                    defaultValue="easy"
+                    className="w-full"
+                    onValueChange={(value) => {
+                      if (value === "cardnews") loadCardNews();
+                    }}
+                  >
+                    <TabsList className="grid w-full grid-cols-3">
                       <TabsTrigger value="easy">쉬운 말 설명</TabsTrigger>
+                      <TabsTrigger value="original">법령 원문</TabsTrigger>
                       <TabsTrigger value="cardnews">카드뉴스</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="easy" className="space-y-4">
                       <Card>
-                        <CardHeader>
+                        <CardHeader className="space-y-2">
                           <CardTitle className="flex items-center gap-2">
                             <MessageCircle className="h-5 w-5 text-green-600" />
                             {selectedLawData.title}
                           </CardTitle>
+                          <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                            <span>{getCategoryLabel(selectedLaw?.category)}</span>
+                            {selectedLawData.start_date && <span>{selectedLawData.start_date}</span>}
+                            {selectedLawData.responsible_ministry && (
+                              <Badge variant="outline" className="text-xs">
+                                {selectedLawData.responsible_ministry}
+                              </Badge>
+                            )}
+                          </div>
+                          {selectedLawData.one_line_summary && (
+                            <p className="text-sm text-muted-foreground leading-relaxed">
+                              {selectedLawData.one_line_summary}
+                            </p>
+                          )}
                         </CardHeader>
                         <CardContent className="space-y-6">
-                          {selectedLawData.summary.map((card) => (
-                            <div key={card.card_id} className="border rounded-lg p-4">
-                              <h4 className="font-semibold mb-3">
-                                {card.card_id}. {card.title}
-                              </h4>
-                              <p className="text-sm leading-relaxed mb-4">
-                                {card.content}
-                              </p>
-
-                              {card.simple_terms.length > 0 && (
-                                <div className="mt-4 pt-4 border-t">
-                                  <h5 className="text-sm font-medium mb-2">주요 용어</h5>
-                                  <div className="space-y-2">
-                                    {card.simple_terms.map((term, idx) => (
-                                      <div key={idx} className="flex gap-2 text-sm">
-                                        <span className="font-medium text-primary">{term.term}:</span>
-                                        <span className="text-muted-foreground">{term.easy}</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
+                          {selectedLawData.markdown ? (
+                            <div className="border rounded-lg p-4 bg-muted/30">
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                className="markdown-body space-y-4 text-sm leading-relaxed"
+                              >
+                                {selectedLawData.markdown}
+                              </ReactMarkdown>
                             </div>
-                          ))}
+                          ) : (
+                            <>
+                              {selectedLawData.summary.map((card) => (
+                                <div key={card.card_id} className="border rounded-lg p-4">
+                                  <h4 className="font-semibold mb-3">
+                                    {card.card_id}. {card.title}
+                                  </h4>
+                                  <p className="text-sm leading-relaxed mb-4">
+                                    {card.content}
+                                  </p>
 
-                          {selectedLawData.compare && (
-                            <Card className="bg-blue-50">
-                              <CardHeader>
-                                <CardTitle className="text-base">개정 전후 비교</CardTitle>
-                              </CardHeader>
-                              <CardContent className="space-y-3">
-                                <div>
-                                  <h5 className="text-sm font-medium mb-1">개정 전</h5>
-                                  <p className="text-sm text-muted-foreground">
-                                    {selectedLawData.compare.before}
-                                  </p>
+                                  {card.simple_terms.length > 0 && (
+                                    <div className="mt-4 pt-4 border-t">
+                                      <h5 className="text-sm font-medium mb-2">주요 용어</h5>
+                                      <div className="space-y-2">
+                                        {card.simple_terms.map((term, idx) => (
+                                          <div key={idx} className="flex gap-2 text-sm">
+                                            <span className="font-medium text-primary">{term.term}:</span>
+                                            <span className="text-muted-foreground">{term.easy}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
-                                <div>
-                                  <h5 className="text-sm font-medium mb-1">개정 후</h5>
-                                  <p className="text-sm text-muted-foreground">
-                                    {selectedLawData.compare.after}
-                                  </p>
-                                </div>
-                              </CardContent>
-                            </Card>
+                              ))}
+
+                              {selectedLawData.compare && (
+                                <Card className="bg-blue-50">
+                                  <CardHeader>
+                                    <CardTitle className="text-base">개정 전후 비교</CardTitle>
+                                  </CardHeader>
+                                  <CardContent className="space-y-3">
+                                    <div>
+                                      <h5 className="text-sm font-medium mb-1">개정 전</h5>
+                                      <p className="text-sm text-muted-foreground">
+                                        {selectedLawData.compare.before}
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <h5 className="text-sm font-medium mb-1">개정 후</h5>
+                                      <p className="text-sm text-muted-foreground">
+                                        {selectedLawData.compare.after}
+                                      </p>
+                                    </div>
+                                  </CardContent>
+                                </Card>
+                              )}
+                            </>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </TabsContent>
+
+                    <TabsContent value="original" className="space-y-4">
+                      <Card>
+                        <CardHeader className="space-y-2">
+                          <CardTitle className="flex items-center gap-2">
+                            <FileText className="h-5 w-5 text-blue-600" />
+                            법령 원문
+                          </CardTitle>
+                          <div className="flex flex-wrap gap-2">
+                            {selectedLawData.original_link && (
+                              <Button
+                                variant="link"
+                                className="p-0 h-auto text-sm"
+                                asChild
+                              >
+                                <a href={selectedLawData.original_link} target="_blank" rel="noopener noreferrer">
+                                  원문 링크 열기
+                                  <ExternalLink className="inline h-4 w-4 ml-1" />
+                                </a>
+                              </Button>
+                            )}
+                            {selectedLawData.original_content && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleCopy(selectedLawData.original_content ?? "")}
+                              >
+                                <Copy className="h-4 w-4 mr-1" />
+                                복사하기
+                              </Button>
+                            )}
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          {selectedLawData.original_content ? (
+                            <ScrollArea className="h-[600px]">
+                              <div className="space-y-4 pr-4 text-sm leading-relaxed whitespace-pre-line">
+                                {selectedLawData.original_content}
+                              </div>
+                            </ScrollArea>
+                          ) : (
+                            <div className="text-sm text-muted-foreground">
+                              원문을 불러오지 못했습니다.
+                            </div>
                           )}
                         </CardContent>
                       </Card>
@@ -459,7 +556,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                                 {cardNewsData.images.map((imageUrl, idx) => (
                                   <div key={idx} className="border rounded-lg overflow-hidden">
                                     <img
-                                      src={`http://localhost:8000${imageUrl}`}
+                                      src={`${API_BASE_URL}${imageUrl}`}
                                       alt={`카드 ${idx + 1}`}
                                       className="w-full h-auto"
                                       loading="lazy"

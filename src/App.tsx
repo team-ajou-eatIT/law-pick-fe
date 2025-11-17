@@ -4,12 +4,7 @@ import {
   MessageCircle,
   FileText,
   Users,
-  Scale,
   ArrowRight,
-  Search,
-  Calendar,
-  BookOpen,
-  Mic,
 } from "lucide-react";
 import {
   Card,
@@ -19,8 +14,6 @@ import {
   CardTitle,
 } from "./components/ui/card";
 import { Button } from "./components/ui/button";
-import { Input } from "./components/ui/input";
-import { ImageWithFallback } from "./components/figma/ImageWithFallback";
 import { SearchResults } from "./components/SearchResults";
 import { ChatBotPage } from "./components/ChatBotPage";
 import { LawSummaryPage } from "./components/LawSummaryPage";
@@ -90,57 +83,6 @@ function MainPage() {
   const navigateToPage = (page: string) => {
     navigate(`/${page}`);
   };
-
-  const cardNews = [
-    {
-      id: 1,
-      title: "청년 내일채움공제 개정안 통과",
-      description:
-        "청년 취업지원을 위한 새로운 정책이 국회를 통과했습니다.",
-      date: "2024.12.20",
-      category: "청년정책",
-    },
-    {
-      id: 2,
-      title: "임대차보호법 개정",
-      description:
-        "전월세 보증금 보호를 위한 법안이 개정되었습니다.",
-      date: "2024.12.18",
-      category: "부동산",
-    },
-    {
-      id: 3,
-      title: "근로기준법 시행령 개정",
-      description:
-        "유연근무제 확대를 위한 시행령 개정안입니다.",
-      date: "2024.12.15",
-      category: "노동법",
-    },
-  ];
-
-  const youthLaws = [
-    {
-      id: 1,
-      title: "청년 기본법 개정안",
-      description: "청년 연령 기준을 34세에서 39세로 확대",
-      date: "2024.12.22",
-      status: "가결",
-    },
-    {
-      id: 2,
-      title: "청년 주거지원 특별법",
-      description: "청년 전세대출 한도 상향 및 지원 조건 완화",
-      date: "2024.12.20",
-      status: "가결",
-    },
-    {
-      id: 3,
-      title: "청년창업지원법 개정안",
-      description: "창업 지원금 확대 및 세제 혜택 강화",
-      date: "2024.12.18",
-      status: "가결",
-    },
-  ];
 
   const features = [
     {

@@ -54,8 +54,8 @@ export const API_ENDPOINTS = {
   lawMarkdown: (lawId: string) => `/api/v1/law/${lawId}/markdown`,
   lawCards: (lawId: string) => `/api/v1/law/${lawId}/cards`,
 
-  // 어시스턴트
-  assistantThread: '/assistant/threads',
-  assistantQuery: '/assistant/query',
+  // AI 법령 어시스턴트
+  assistantThread: '/api/v1/law/chatbot/threads',
+  assistantQuery: '/api/v1/law/chatbot/query',
 
 } as const;

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { ArrowLeft, Send, Bot, User, Scale, MessageCircle, FileText, Globe } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -33,19 +33,34 @@ export function ChatBotPage({ onBack }: ChatBotPageProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [threadId, setThreadId] = useState<string | null>(null);
 
+  const appendMessage = useCallback((message: Omit<Message, 'id'>) => {
+    setMessages((prev) => [
+      ...prev,
+      {
+        ...message,
+        id: prev.length + 1,
+      },
+    ]);
+  }, []);
+
+  const ensureThreadId = useCallback(async (): Promise<string | null> => {
+    if (threadId) {
+      return threadId;
+    }
+    const response = await createThread();
+    if (response.data) {
+      setThreadId(response.data.thread_id);
+      console.log('Thread created:', response.data.thread_id);
+      return response.data.thread_id;
+    }
+    console.error('Failed to create thread:', response.error);
+    return null;
+  }, [threadId]);
+
   // 컴포넌트 마운트 시 대화 세션 생성
   useEffect(() => {
-    const initThread = async () => {
-      const response = await createThread();
-      if (response.data) {
-        setThreadId(response.data.thread_id);
-        console.log('Thread created:', response.data.thread_id);
-      } else {
-        console.error('Failed to create thread:', response.error);
-      }
-    };
-    initThread();
-  }, []);
+    void ensureThreadId();
+  }, [ensureThreadId]);
 
   const frequentQuestions = [
     "임대차 보증금 반환 받는 방법이 궁금해요",
@@ -55,70 +70,62 @@ export function ChatBotPage({ onBack }: ChatBotPageProps) {
   ];
 
   const handleSendMessage = async (content?: string) => {
-    const messageContent = content || inputValue;
-    if (!messageContent.trim()) return;
-    
-    if (!threadId) {
-      const errorMessage: Message = {
-        id: messages.length + 1,
+    const messageContent = (content ?? inputValue).trim();
+    if (!messageContent) return;
+
+    let activeThreadId = threadId;
+    if (!activeThreadId) {
+      activeThreadId = await ensureThreadId();
+    }
+
+    if (!activeThreadId) {
+      appendMessage({
         content: '죄송합니다. 대화 세션 생성 중 오류가 발생했습니다. 페이지를 새로고침해 주세요.',
         sender: 'bot',
         timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      });
       return;
     }
 
-    const newUserMessage: Message = {
-      id: messages.length + 1,
+    appendMessage({
       content: messageContent,
       sender: 'user',
       timestamp: new Date()
-    };
+    });
 
-    setMessages(prev => [...prev, newUserMessage]);
     setInputValue("");
     setIsLoading(true);
 
     try {
-      // 실제 API 호출
       const response = await sendQuery({
         message: messageContent,
-        thread_id: threadId,
+        thread_id: activeThreadId,
         debug: false
       });
 
       if (response.data) {
-        const newBotMessage: Message = {
-          id: messages.length + 2,
+        appendMessage({
           content: response.data.answer,
           sender: 'bot',
           timestamp: new Date(),
           documents: response.data.documents,
           used_web_search: response.data.used_web_search,
           route: response.data.route
-        };
-
-        setMessages(prev => [...prev, newBotMessage]);
+        });
       } else {
-        // 에러 처리
-        const errorMessage: Message = {
-          id: messages.length + 2,
+        appendMessage({
           content: `죄송합니다. 응답을 가져오는 중 오류가 발생했습니다.\n\n오류: ${response.error}\n\n다시 시도해 주세요.`,
           sender: 'bot',
           timestamp: new Date()
-        };
-        setMessages(prev => [...prev, errorMessage]);
+        });
       }
     } catch (error) {
       console.error('Query error:', error);
-      const errorMessage: Message = {
-        id: messages.length + 2,
+      appendMessage({
         content: '죄송합니다. 네트워크 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.',
         sender: 'bot',
         timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      });
     } finally {
       setIsLoading(false);
     }
@@ -127,12 +134,12 @@ export function ChatBotPage({ onBack }: ChatBotPageProps) {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSendMessage();
+      void handleSendMessage();
     }
   };
 
   const handleQuestionClick = (question: string) => {
-    handleSendMessage(question);
+    void handleSendMessage(question);
   };
 
   return (

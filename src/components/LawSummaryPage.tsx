@@ -115,14 +115,20 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
       });
 
       if (response.data) {
-        // 선택된 카테고리가 있으면 필터링
+        // 백엔드에서 이미 필터링된 결과를 받으므로, 
+        // 추가 필터링이 필요한 경우(카테고리가 선택되지 않았을 때)만 처리
         let filtered = response.data.items;
-        if (selectedCategories.size > 0) {
-          const categoryKoreans = Array.from(selectedCategories);
+        
+        // 선택된 카테고리가 여러 개일 때만 클라이언트 사이드 필터링
+        // (백엔드는 단일 카테고리만 지원하므로)
+        if (selectedCategories.size > 1) {
+          // 선택된 한글 카테고리를 영어 키로 변환
+          const categoryKeys = Array.from(selectedCategories).map(cat => CATEGORY_MAP[cat]);
           filtered = filtered.filter(law => 
-            categoryKoreans.includes(law.category)
+            categoryKeys.includes(law.category)
           );
         }
+        
         setLaws(filtered);
       } else {
         console.error("법령 목록 로드 실패:", response.error);

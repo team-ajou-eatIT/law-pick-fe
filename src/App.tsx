@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { Routes, Route, useNavigate, useSearchParams } from "react-router-dom";
+import {
+  Routes,
+  Route,
+  useNavigate,
+  useSearchParams,
+  useLocation,
+} from "react-router-dom";
 import {
   MessageCircle,
   FileText,
@@ -51,7 +57,17 @@ function SearchPage() {
 
 function ChatBotPageWrapper() {
   const navigate = useNavigate();
-  return <ChatBotPage onBack={() => navigate('/')} />;
+  const location = useLocation();
+  const initialMessage =
+    (location.state as { initialMessage?: string } | null)?.initialMessage ??
+    undefined;
+
+  return (
+    <ChatBotPage
+      onBack={() => navigate('/')}
+      initialMessage={initialMessage}
+    />
+  );
 }
 
 function LawSummaryPageWrapper() {
@@ -69,8 +85,12 @@ function MainPage() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const handleSearch = () => {
-    if (searchQuery.trim()) {
-      navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
+    const trimmedQuery = searchQuery.trim();
+    if (trimmedQuery) {
+      navigate("/chatbot", {
+        state: { initialMessage: trimmedQuery },
+      });
+      setSearchQuery("");
     }
   };
 
@@ -350,7 +370,10 @@ function MainPage() {
             {/* Category Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-20 max-w-6xl mx-auto">
               {/* 부동산 정책 Pick */}
-              <div className="relative">
+              <a
+                className="relative block"
+                href="https://law-pick.me/summary/all?category=real_estate"
+              >
                 <div className="backdrop-blur-[5.1px] bg-white/80 rounded-[15px] border border-[#e6e6e6] p-4 h-[149px] flex flex-col justify-between hover:shadow-lg transition-all cursor-pointer">
                   <div>
                     <h3
@@ -399,10 +422,13 @@ function MainPage() {
                     </div>
                   </div>
                 </div>
-              </div>
+              </a>
 
               {/* 금융 Pick */}
-              <div className="relative">
+              <a
+                className="relative block"
+                href="https://law-pick.me/summary/all?category=finance"
+              >
                 <div className="backdrop-blur-[5.1px] bg-white/80 rounded-[15px] border border-[#e6e6e6] p-4 h-[149px] flex flex-col justify-between hover:shadow-lg transition-all cursor-pointer">
                   <div>
                     <h3
@@ -452,10 +478,13 @@ function MainPage() {
                     </div>
                   </div>
                 </div>
-              </div>
+              </a>
 
               {/* 취업 Pick */}
-              <div className="relative">
+              <a
+                className="relative block"
+                href="https://law-pick.me/summary/all?category=employment"
+              >
                 <div className="backdrop-blur-[5.1px] bg-white/80 rounded-[15px] border border-[#e6e6e6] p-4 h-[149px] flex flex-col justify-between hover:shadow-lg transition-all cursor-pointer">
                   <div>
                     <h3
@@ -505,10 +534,13 @@ function MainPage() {
                     </div>
                   </div>
                 </div>
-              </div>
+              </a>
 
               {/* 교육 Pick */}
-              <div className="relative">
+              <a
+                className="relative block"
+                href="https://law-pick.me/summary/all?category=education"
+              >
                 <div className="backdrop-blur-[5.1px] bg-white/80 rounded-[15px] border border-[#e6e6e6] p-4 h-[149px] flex flex-col justify-between hover:shadow-lg transition-all cursor-pointer">
                   <div>
                     <h3
@@ -558,7 +590,7 @@ function MainPage() {
                     </div>
                   </div>
                 </div>
-              </div>
+              </a>
             </div>
 
             {/* Search Bar */}

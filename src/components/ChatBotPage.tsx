@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { ArrowLeft, Send, Bot, User, Scale, MessageCircle, FileText, Globe } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -18,9 +18,10 @@ interface Message {
 
 interface ChatBotPageProps {
   onBack: () => void;
+  initialMessage?: string;
 }
 
-export function ChatBotPage({ onBack }: ChatBotPageProps) {
+export function ChatBotPage({ onBack, initialMessage }: ChatBotPageProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
@@ -69,7 +70,7 @@ export function ChatBotPage({ onBack }: ChatBotPageProps) {
     "교통사고 발생 시 대처 방법을 알려주세요"
   ];
 
-  const handleSendMessage = async (content?: string) => {
+  const handleSendMessage = useCallback(async (content?: string) => {
     const messageContent = (content ?? inputValue).trim();
     if (!messageContent) return;
 
@@ -129,7 +130,7 @@ export function ChatBotPage({ onBack }: ChatBotPageProps) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [appendMessage, ensureThreadId, inputValue, threadId]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -141,6 +142,18 @@ export function ChatBotPage({ onBack }: ChatBotPageProps) {
   const handleQuestionClick = (question: string) => {
     void handleSendMessage(question);
   };
+
+  const processedInitialMessageRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!initialMessage) return;
+    const trimmed = initialMessage.trim();
+    if (!trimmed) return;
+    if (processedInitialMessageRef.current === trimmed) return;
+
+    processedInitialMessageRef.current = trimmed;
+    void handleSendMessage(trimmed);
+  }, [initialMessage, handleSendMessage]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">

@@ -279,16 +279,16 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
     }
   };
 
-  // 카테고리 토글 핸들러
+  // 카테고리 토글 핸들러 (단일 선택만 가능)
   const handleCategoryToggle = (category: YouthProposalCategory) => {
     setSelectedBill(null);
-    const newCategories = new Set(selectedCategories);
+    const newCategories = new Set<YouthProposalCategory>();
     
-    if (newCategories.has(category)) {
-      // 이미 선택된 경우 제거
-      newCategories.delete(category);
+    if (selectedCategories.has(category)) {
+      // 이미 선택된 경우 제거 (전체 보기)
+      // newCategories는 빈 Set
     } else {
-      // 선택되지 않은 경우 추가
+      // 선택되지 않은 경우 해당 카테고리만 추가 (기존 선택 무시)
       newCategories.add(category);
     }
     
@@ -844,7 +844,13 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
             </div>
             <h3 className="text-lg font-semibold mb-2">해당 카테고리의 법안이 없습니다</h3>
             <p className="text-muted-foreground mb-4">다른 카테고리를 선택해보세요.</p>
-            <Button variant="outline" onClick={() => handleCategoryChange('all')}>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setSelectedCategories(new Set());
+                setSearchParams({}, { replace: true });
+              }}
+            >
               전체 보기
             </Button>
           </div>

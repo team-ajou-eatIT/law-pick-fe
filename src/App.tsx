@@ -567,7 +567,7 @@ function MainPage() {
                 {/* Search Input */}
                 <input
                   type="text"
-                  placeholder="예시) 새로 이사한 곳에서 주민등록 전입신고는 어떻게 하나요?"
+                  placeholder="  예시) 새로 이사한 곳에서 주민등록 전입신고는 어떻게 하나요?"
                   value={searchQuery}
                   onChange={(e) =>
                     setSearchQuery(e.target.value)

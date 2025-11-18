@@ -663,11 +663,11 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
                               </div>
                             </div>
                           ))}
-                          <div className="bg-blue-50 p-4 rounded-lg mt-6">
+                          {/* <div className="bg-blue-50 p-4 rounded-lg mt-6">
                             <p className="text-sm text-blue-900">
                               <strong>주의:</strong> 위 링크는 참고용이며, 실제 법령 적용 시에는 반드시 최신 법령을 확인하시기 바랍니다.
                             </p>
-                          </div>
+                          </div> */}
                         </>
                       ) : (
                         <Alert>

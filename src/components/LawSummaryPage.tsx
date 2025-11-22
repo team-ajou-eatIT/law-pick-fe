@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams, useLocation } from "react-router-dom";
-import { ArrowLeft, FileText, Search, Sparkles, BookOpen, MessageCircle, Copy, ExternalLink, Calendar, Loader2, X, Dictionary } from "lucide-react";
+import { ArrowLeft, FileText, Search, Sparkles, BookOpen, MessageCircle, Copy, ExternalLink, Calendar, Loader2, X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Button } from "./ui/button";
@@ -697,7 +697,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                     <Card className="sticky top-4">
                       <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                          <Dictionary className="h-5 w-5 text-amber-600" />
+                          <BookOpen className="h-5 w-5 text-amber-600" />
                           쉬운 말 사전
                         </CardTitle>
                       </CardHeader>

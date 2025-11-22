@@ -58,4 +58,8 @@ export const API_ENDPOINTS = {
   assistantThread: '/api/v1/law/chatbot/threads',
   assistantQuery: '/api/v1/law/chatbot/query',
 
+  // 안건 분석 리포트
+  billReportSearch: '/api/v1/bill-report/search',
+  billReportDetail: (billNo: string) => `/api/v1/bill-report/${billNo}`,
+
 } as const;

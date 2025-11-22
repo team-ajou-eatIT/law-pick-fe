@@ -1,14 +1,17 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams, useLocation } from "react-router-dom";
-import { ArrowLeft, Users, Calendar, ArrowRight, FileText, Target, BookOpen, ExternalLink, FileSignature, Clock, CheckCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, Users, Calendar, ArrowRight, FileText, Target, BookOpen, ExternalLink, FileSignature, Clock, CheckCircle, Loader2, Search, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
+import { Input } from "./ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { ScrollArea } from "./ui/scroll-area";
 import { Alert, AlertDescription } from "./ui/alert";
 import { getYouthProposals, getYouthProposalDetail, transformYouthProposalForUI } from "../api/youth-proposal";
+import { searchBillReports, getBillReportDetail } from "../api/bill-report";
 import type { YouthProposalListItem, YouthProposalDetailUI, YouthProposalCategory } from "../types/youth-proposal";
+import type { BillReportListItem } from "../types/bill-report";
 import { CATEGORY_NAMES } from "../types/youth-proposal";
 
 interface BillAnalysisPageProps {
@@ -73,14 +76,19 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
 
   // URL에서 초기값 가져오기
   const categoryFromUrl = searchParams.get("category");
+  const searchQueryFromUrl = searchParams.get("search") || "";
 
   // /analysis/all 경로인지 확인
   const isAllPath = location.pathname === '/analysis/all' || location.pathname === '/analysis';
 
   // 선택된 카테고리를 Set으로 관리 (토글 방식)
   const [selectedCategories, setSelectedCategories] = useState<Set<YouthProposalCategory>>(new Set());
+  const [searchQuery, setSearchQuery] = useState<string>(searchQueryFromUrl);
   const [selectedBill, setSelectedBill] = useState<YouthProposalDetailUI | null>(null);
   const [youthBills, setYouthBills] = useState<YouthProposalListItem[]>([]);
+  const [billReportResults, setBillReportResults] = useState<BillReportListItem[]>([]);
+  const [isSearchMode, setIsSearchMode] = useState(false);
+  const [searchTotalCount, setSearchTotalCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<ErrorState | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -152,15 +160,58 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
     [filterBySelection, readListCache]
   );
 
+  // bill_report 검색
+  const searchBillReportsData = useCallback(async (query: string) => {
+    setLoading(true);
+    setError(null);
+    setIsSearchMode(true);
+
+    try {
+      const response = await searchBillReports(query.trim(), 50, 0);
+
+      if (response.error) {
+        setError({
+          kind: response.error === 'Failed to fetch' ? 'network' : 'general',
+          message:
+            response.error === 'Failed to fetch'
+              ? '데이터 서버에 연결하지 못했습니다. 잠시 후 다시 시도해주세요.'
+              : response.error,
+          detail: response.error === 'Failed to fetch' ? undefined : response.error,
+        });
+        setBillReportResults([]);
+        setSearchTotalCount(0);
+        return;
+      }
+
+      if (response.data) {
+        setBillReportResults(response.data.reports);
+        setSearchTotalCount(response.data.total_count);
+        setCacheNotice(null);
+      }
+    } catch (err) {
+      console.error('Failed to search bill reports:', err);
+      setError({
+        kind: 'general',
+        message: '안건 분석 리포트 검색에 실패했습니다.',
+        detail: err instanceof Error ? err.message : undefined,
+      });
+      setBillReportResults([]);
+      setSearchTotalCount(0);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const loadYouthBills = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setIsSearchMode(false);
 
     try {
       const category =
         selectedCategories.size === 1 ? Array.from(selectedCategories)[0] : undefined;
 
-      const response = await getYouthProposals(category);
+      const response = await getYouthProposals(category, 100);
 
       if (response.error) {
         if (!attemptCacheFallback(response.error)) {
@@ -201,7 +252,7 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
     }
   }, [attemptCacheFallback, filterBySelection, persistListCache, selectedCategories]);
 
-  // URL 파라미터에서 초기 카테고리 설정
+  // URL 파라미터에서 초기 카테고리 및 검색어 설정
   useEffect(() => {
     if (isAllPath && !categoryFromUrl) {
       // /analysis/all 경로이고 category 파라미터가 없으면 빈 Set으로 시작
@@ -228,24 +279,40 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
     } else {
       setSelectedCategories(new Set());
     }
-  }, [categoryFromUrl, isAllPath]);
+
+    // 검색어 설정
+    if (searchQueryFromUrl) {
+      setSearchQuery(searchQueryFromUrl);
+    }
+  }, [categoryFromUrl, searchQueryFromUrl, isAllPath]);
 
   // URL에 bill_no가 있으면 해당 법안 자동 로드
   useEffect(() => {
     const billNoFromUrl = searchParams.get("bill_no");
-    if (billNoFromUrl && youthBills.length > 0) {
-      const bill = youthBills.find(b => b.bill_no === billNoFromUrl);
-      if (bill && (!selectedBill || selectedBill.bill_no !== billNoFromUrl)) {
-        handleBillSelect(bill);
+    if (billNoFromUrl) {
+      if (isSearchMode && billReportResults.length > 0) {
+        const report = billReportResults.find(r => r.bill_no === billNoFromUrl);
+        if (report && (!selectedBill || selectedBill.bill_no !== billNoFromUrl)) {
+          handleBillReportSelect(report);
+        }
+      } else if (!isSearchMode && youthBills.length > 0) {
+        const bill = youthBills.find(b => b.bill_no === billNoFromUrl);
+        if (bill && (!selectedBill || selectedBill.bill_no !== billNoFromUrl)) {
+          handleBillSelect(bill);
+        }
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, youthBills]);
+  }, [searchParams, youthBills, billReportResults, isSearchMode]);
 
-  // 청년 안건 목록 로드
+  // 검색어에 따라 청년 안건 목록 또는 bill_report 검색
   useEffect(() => {
-    loadYouthBills();
-  }, [loadYouthBills]);
+    if (searchQuery.trim()) {
+      searchBillReportsData(searchQuery.trim());
+    } else {
+      loadYouthBills();
+    }
+  }, [searchQuery, searchBillReportsData, loadYouthBills]);
 
   // 청년 안건 상세 정보 로드
   const loadBillDetail = async (billNo: string) => {
@@ -294,26 +361,122 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
     
     setSelectedCategories(newCategories);
 
-    // URL 업데이트
-    if (newCategories.size === 0) {
-      // 선택된 카테고리가 없으면 category 파라미터 제거
-      setSearchParams({}, { replace: true });
-    } else {
-      // 선택된 카테고리를 문자열로 변환하여 URL에 추가
+    // URL 업데이트 (검색어 유지)
+    const params: Record<string, string> = {};
+    if (newCategories.size > 0) {
       const categoryStrings = Array.from(newCategories).map(cat => CATEGORY_TO_STRING[cat]);
-      setSearchParams({ category: categoryStrings.join(',') }, { replace: true });
+      params.category = categoryStrings.join(',');
+    }
+    if (searchQuery.trim()) {
+      params.search = searchQuery.trim();
+    }
+    setSearchParams(params, { replace: true });
+  };
+
+  // 검색어 변경 핸들러
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+  };
+
+  // 검색 실행 핸들러
+  const handleSearchSubmit = () => {
+    setSelectedBill(null);
+    const params: Record<string, string> = {};
+    const categoryStrings = Array.from(selectedCategories).map(cat => CATEGORY_TO_STRING[cat]);
+    if (categoryStrings.length > 0) {
+      params.category = categoryStrings.join(',');
+    }
+    if (searchQuery.trim()) {
+      params.search = searchQuery.trim();
+      // 검색어가 있으면 bill_report 검색 실행
+      searchBillReportsData(searchQuery.trim());
+    } else {
+      // 검색어가 없으면 청년 안건 목록 로드
+      loadYouthBills();
+    }
+    setSearchParams(params, { replace: true });
+  };
+
+  // 검색어 초기화 핸들러
+  const handleSearchClear = () => {
+    setSearchQuery("");
+    setSelectedBill(null);
+    setBillReportResults([]);
+    setIsSearchMode(false);
+    const params: Record<string, string> = {};
+    const categoryStrings = Array.from(selectedCategories).map(cat => CATEGORY_TO_STRING[cat]);
+    if (categoryStrings.length > 0) {
+      params.category = categoryStrings.join(',');
+    }
+    setSearchParams(params, { replace: true });
+    // 청년 안건 목록 다시 로드
+    loadYouthBills();
+  };
+
+  // Enter 키 핸들러
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      handleSearchSubmit();
     }
   };
 
-  // 법안 선택 핸들러
+  // 법안 선택 핸들러 (청년 안건)
   const handleBillSelect = (bill: YouthProposalListItem) => {
     loadBillDetail(bill.bill_no);
 
-    // URL 업데이트 (category와 bill_no 모두 포함)
+    // URL 업데이트 (category, search, bill_no 모두 포함)
     const categoryStrings = Array.from(selectedCategories).map(cat => CATEGORY_TO_STRING[cat]);
     const params: Record<string, string> = { bill_no: bill.bill_no };
     if (categoryStrings.length > 0) {
       params.category = categoryStrings.join(',');
+    }
+    if (searchQuery.trim()) {
+      params.search = searchQuery.trim();
+    }
+    setSearchParams(params);
+  };
+
+  // bill_report 검색 결과 선택 핸들러
+  const handleBillReportSelect = async (report: BillReportListItem) => {
+    setDetailLoading(true);
+    setError(null);
+    
+    try {
+      // bill_report 상세 정보를 가져오기 위해 youth-proposal API 사용
+      // (bill_no가 동일하고, youth-proposal이 있으면 상세 정보를 가져올 수 있음)
+      const response = await getYouthProposalDetail(report.bill_no);
+      
+      if (response.error) {
+        // youth-proposal이 없을 수 있으므로, bill_report 정보만으로도 표시 가능하도록 처리
+        // 일단 에러를 표시하지 않고 bill_report 정보를 직접 사용
+        console.warn('Youth proposal detail not found, using bill report data:', response.error);
+      }
+      
+      if (response.data) {
+        const transformedDetail = transformYouthProposalForUI(response.data);
+        setSelectedBill(transformedDetail);
+      } else {
+        // youth-proposal이 없는 경우 bill_report 정보만으로 기본 정보 표시
+        // (이 경우 상세 정보는 제한적일 수 있음)
+        setError({
+          kind: 'general',
+          message: '청년 안건으로 분류되지 않은 법안입니다. 상세 정보는 제한적으로 표시됩니다.',
+        });
+      }
+    } catch (err) {
+      setError({
+        kind: 'general',
+        message: '법안 상세 정보를 불러오는데 실패했습니다.',
+        detail: err instanceof Error ? err.message : undefined,
+      });
+    } finally {
+      setDetailLoading(false);
+    }
+
+    // URL 업데이트
+    const params: Record<string, string> = { bill_no: report.bill_no };
+    if (searchQuery.trim()) {
+      params.search = searchQuery.trim();
     }
     setSearchParams(params);
   };
@@ -322,10 +485,17 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
   const handleBackToList = () => {
     setSelectedBill(null);
 
-    // URL 업데이트 (category만 유지, bill_no 제거)
+    // URL 업데이트 (category, search 유지, bill_no 제거)
+    const params: Record<string, string> = {};
     const categoryStrings = Array.from(selectedCategories).map(cat => CATEGORY_TO_STRING[cat]);
     if (categoryStrings.length > 0) {
-      setSearchParams({ category: categoryStrings.join(',') });
+      params.category = categoryStrings.join(',');
+    }
+    if (searchQuery.trim()) {
+      params.search = searchQuery.trim();
+    }
+    if (Object.keys(params).length > 0) {
+      setSearchParams(params);
     } else {
       setSearchParams({}, { replace: true });
     }
@@ -752,24 +922,68 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
           </Alert>
         )}
 
-        {/* 카테고리 필터 */}
+        {/* 카테고리 필터 및 검색 */}
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-xl font-semibold">청년 관련 법안</h2>
-            <Badge variant="secondary">{filteredBills.length}건</Badge>
+            <h2 className="text-xl font-semibold">
+              {isSearchMode ? '안건 분석 리포트 검색 결과' : '청년 관련 법안'}
+            </h2>
+            <Badge variant="secondary">
+              {isSearchMode ? searchTotalCount : filteredBills.length}건
+            </Badge>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {categories.map((category) => (
+          <div className="flex flex-wrap items-center gap-3">
+            {/* 카테고리 필터 (검색 모드가 아닐 때만 표시) */}
+            {!isSearchMode && (
+              <div className="flex flex-wrap gap-2">
+                {categories.map((category) => (
+                  <Button
+                    key={category}
+                    variant={selectedCategories.has(category) ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleCategoryToggle(category)}
+                    disabled={loading}
+                  >
+                    {CATEGORY_KOREAN_NAMES[category]}
+                  </Button>
+                ))}
+              </div>
+            )}
+            
+            {/* 검색 입력 */}
+            <div className="flex items-center gap-2 flex-1 min-w-[200px] max-w-[400px]">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="법안명, 내용 검색..."
+                  value={searchQuery}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  onKeyDown={handleSearchKeyDown}
+                  className="pl-9 pr-9 h-9"
+                  disabled={loading}
+                />
+                {searchQuery && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7"
+                    onClick={handleSearchClear}
+                    disabled={loading}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
               <Button
-                key={category}
-                variant={selectedCategories.has(category) ? "default" : "outline"}
                 size="sm"
-                onClick={() => handleCategoryToggle(category)}
+                onClick={handleSearchSubmit}
                 disabled={loading}
+                className="h-9"
               >
-                {CATEGORY_KOREAN_NAMES[category]}
+                검색
               </Button>
-            ))}
+            </div>
           </div>
         </div>
 
@@ -781,7 +995,7 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
         )}
 
         {/* 법안 목록 */}
-        {!loading && (
+        {!loading && !isSearchMode && (
           <div className="grid gap-6">
             {filteredBills.map((bill) => (
               <Card key={bill.bill_no} className="hover:shadow-lg transition-all cursor-pointer">
@@ -836,8 +1050,86 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
           </div>
         )}
 
+        {/* bill_report 검색 결과 */}
+        {!loading && isSearchMode && (
+          <div className="grid gap-6">
+            {billReportResults.map((report) => (
+              <Card key={report.bill_no} className="hover:shadow-lg transition-all cursor-pointer">
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-3">
+                        <h3 className="text-lg font-semibold">{report.bill_nm || '의안명 없음'}</h3>
+                        <Badge variant="outline">{report.processing_status === 'completed' ? '완료' : report.processing_status}</Badge>
+                      </div>
+                      
+                      {report.bill_summary && (
+                        <p className="text-muted-foreground mb-4 leading-relaxed">
+                          {report.bill_summary}
+                        </p>
+                      )}
+
+                      {/* 검색어가 포함된 컬럼 하이라이트 */}
+                      <div className="space-y-2 mb-4 text-sm">
+                        {report.proposal_reason && report.proposal_reason.toLowerCase().includes(searchQuery.toLowerCase()) && (
+                          <div className="bg-blue-50 p-3 rounded-lg">
+                            <p className="text-xs text-blue-600 font-semibold mb-1">제안이유</p>
+                            <p className="text-muted-foreground line-clamp-2">{report.proposal_reason}</p>
+                          </div>
+                        )}
+                        {report.expected_effects && report.expected_effects.toLowerCase().includes(searchQuery.toLowerCase()) && (
+                          <div className="bg-amber-50 p-3 rounded-lg">
+                            <p className="text-xs text-amber-600 font-semibold mb-1">예상효과</p>
+                            <p className="text-muted-foreground line-clamp-2">{report.expected_effects}</p>
+                          </div>
+                        )}
+                        {report.major_changes && report.major_changes.toLowerCase().includes(searchQuery.toLowerCase()) && (
+                          <div className="bg-green-50 p-3 rounded-lg">
+                            <p className="text-xs text-green-600 font-semibold mb-1">주요 변경점</p>
+                            <p className="text-muted-foreground line-clamp-2">{report.major_changes}</p>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="flex items-center gap-6 text-sm text-muted-foreground">
+                        {report.rgs_rsln_dt && (
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-4 w-4" />
+                            {report.rgs_rsln_dt}
+                          </div>
+                        )}
+                        {report.jrcmit_nm && (
+                          <div className="flex items-center gap-1">
+                            <Users className="h-4 w-4" />
+                            {report.jrcmit_nm}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <Button 
+                      onClick={() => handleBillReportSelect(report)}
+                      className="flex-shrink-0"
+                      disabled={detailLoading}
+                    >
+                      {detailLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          상세보기
+                          <ArrowRight className="ml-2 h-4 w-4" />
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
         {/* 데이터 없음 */}
-        {!loading && filteredBills.length === 0 && (
+        {!loading && !isSearchMode && filteredBills.length === 0 && (
           <div className="text-center py-12">
             <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
               <FileText className="h-8 w-8 text-muted-foreground" />
@@ -848,10 +1140,28 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
               variant="outline" 
               onClick={() => {
                 setSelectedCategories(new Set());
+                setSearchQuery("");
                 setSearchParams({}, { replace: true });
               }}
             >
               전체 보기
+            </Button>
+          </div>
+        )}
+
+        {/* 검색 결과 없음 */}
+        {!loading && isSearchMode && billReportResults.length === 0 && (
+          <div className="text-center py-12">
+            <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+              <Search className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <h3 className="text-lg font-semibold mb-2">검색 결과가 없습니다</h3>
+            <p className="text-muted-foreground mb-4">다른 검색어로 시도해보세요.</p>
+            <Button 
+              variant="outline" 
+              onClick={handleSearchClear}
+            >
+              검색 초기화
             </Button>
           </div>
         )}

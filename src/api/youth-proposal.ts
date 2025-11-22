@@ -16,11 +16,13 @@ import type {
  */
 export async function getYouthProposals(
   category?: YouthProposalCategory,
-  limit: number = 100
+  limit: number = 100,
+  search?: string
 ) {
   return get<YouthProposalListResponse>(API_ENDPOINTS.youthProposals, {
     category,
     limit,
+    search,
   });
 }
 

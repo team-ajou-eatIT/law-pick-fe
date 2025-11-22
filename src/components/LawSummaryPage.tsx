@@ -577,7 +577,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
 
                         {/* 쉬운 말 설명 및 요약 */}
                         {parsedMarkdown.easyExplanation && (
-                          <div className="border-l-4 border-green-500 pl-6 py-2">
+                          <div className="border-l-4 border-green-500 pl-10 py-2">
                             <h4 className="font-semibold text-green-800 mb-2">쉬운 말 설명 및 요약</h4>
                             <div className="text-sm leading-relaxed text-muted-foreground">
                               <ReactMarkdown

@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useSearchParams, useLocation } from "react-router-dom";
-import { ArrowLeft, FileText, Search, Sparkles, BookOpen, MessageCircle, Copy, ExternalLink, Calendar, Loader2, X } from "lucide-react";
+import { ArrowLeft, FileText, Search, Sparkles, BookOpen, MessageCircle, Copy, ExternalLink, Calendar, Loader2, X, Dictionary } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Button } from "./ui/button";
@@ -15,6 +15,138 @@ import { getLawList, getLawDetail, getLawCards, type LawListItem, type LawSummar
 interface LawSummaryPageProps {
   onBack: () => void;
 }
+
+// markdown 파싱 결과 타입
+interface ParsedMarkdown {
+  lawInfo: string; // 법령정보 (# 제목, > 법령 ID)
+  easyExplanation: string; // 쉬운 말 설명 및 요약 (## 1., ## 2. 등)
+  compare: { before: string; after: string } | null; // 개정 전후 비교
+  termDictionary: Array<{ term: string; definition: string }>; // 쉬운 말 사전
+}
+
+// markdown 데이터 파싱 함수
+const parseMarkdown = (markdown: string): ParsedMarkdown => {
+  const lines = markdown.split('\n');
+  const result: ParsedMarkdown = {
+    lawInfo: '',
+    easyExplanation: '',
+    compare: null,
+    termDictionary: []
+  };
+
+  let currentSection: 'lawInfo' | 'easyExplanation' | 'compare' | 'dictionary' | null = null;
+  let lawInfoLines: string[] = [];
+  let easyExplanationLines: string[] = [];
+  let compareSection: { before: string[]; after: string[] } | null = null;
+  let dictionaryEntries: Array<{ term: string; definition: string }> = [];
+  let currentCompareSection: 'before' | 'after' | null = null;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    
+    // 법령정보 섹션 (제목과 법령 ID)
+    if (line.startsWith('# ') && !line.match(/^##\s+[0-9]+\./)) {
+      currentSection = 'lawInfo';
+      lawInfoLines.push(line);
+      continue;
+    }
+    
+    if (line.startsWith('> ')) {
+      if (currentSection === null || currentSection === 'lawInfo') {
+        currentSection = 'lawInfo';
+        lawInfoLines.push(line);
+      }
+      continue;
+    }
+    
+    // 쉬운 말 설명 섹션 (## 1., ## 2. 등)
+    if (line.match(/^##\s+[0-9]+\./)) {
+      currentSection = 'easyExplanation';
+      easyExplanationLines.push(line);
+      continue;
+    }
+    
+    // 주요 용어 설명 섹션
+    if (line.includes('주요 용어 설명') || line.includes('📚')) {
+      currentSection = 'dictionary';
+      continue;
+    }
+    
+    // 개정 전후 비교 섹션
+    if (line.includes('개정 전후 비교') || line.includes('🔄')) {
+      currentSection = 'compare';
+      compareSection = { before: [], after: [] };
+      continue;
+    }
+    
+    // 개정 전/후 서브섹션
+    if (line.match(/^###\s+개정\s+전/)) {
+      currentCompareSection = 'before';
+      continue;
+    }
+    
+    if (line.match(/^###\s+개정\s+후/)) {
+      currentCompareSection = 'after';
+      continue;
+    }
+    
+    // 현재 섹션에 따라 내용 추가
+    if (currentSection === 'lawInfo' && !line.match(/^##/)) {
+      if (line.trim()) {
+        lawInfoLines.push(line);
+      }
+    } else if (currentSection === 'easyExplanation') {
+      // 용어 사전이나 비교 섹션이 시작되면 쉬운 말 설명 섹션 종료
+      if (line.includes('주요 용어 설명') || line.includes('📚')) {
+        // 용어 사전 섹션 시작
+        currentSection = 'dictionary';
+        continue;
+      } else if (line.includes('개정 전후 비교') || line.includes('🔄')) {
+        // 개정 전후 비교 섹션 시작
+        currentSection = 'compare';
+        compareSection = { before: [], after: [] };
+        continue;
+      }
+      easyExplanationLines.push(line);
+    } else if (currentSection === 'dictionary') {
+      // 용어 사전 파싱 (## 개정 전후 비교나 다른 섹션이 나오면 중단)
+      if (line.includes('개정 전후 비교') || line.includes('🔄')) {
+        currentSection = 'compare';
+        compareSection = { before: [], after: [] };
+        continue;
+      }
+      
+      // - **용어**: 정의 형식 파싱
+      const termMatch = line.match(/^-\s+\*\*([^*]+)\*\*:\s*(.+)$/);
+      if (termMatch) {
+        dictionaryEntries.push({
+          term: termMatch[1].trim(),
+          definition: termMatch[2].trim()
+        });
+      }
+    } else if (currentSection === 'compare' && compareSection) {
+      if (currentCompareSection === 'before' && line.trim() && !line.match(/^###/)) {
+        compareSection.before.push(line);
+      } else if (currentCompareSection === 'after' && line.trim() && !line.match(/^###/)) {
+        compareSection.after.push(line);
+      }
+    }
+  }
+
+  result.lawInfo = lawInfoLines.join('\n').trim();
+  result.easyExplanation = easyExplanationLines.join('\n').trim();
+  result.termDictionary = dictionaryEntries;
+  
+  if (compareSection && (compareSection.before.length > 0 || compareSection.after.length > 0)) {
+    result.compare = {
+      before: compareSection.before.join('\n').trim(),
+      after: compareSection.after.join('\n').trim()
+    };
+  }
+
+  return result;
+};
+
 
 // 카테고리 매핑 (한글 → 영어)
 const CATEGORY_MAP: Record<string, string> = {
@@ -60,6 +192,10 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
   const [laws, setLaws] = useState<LawListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingCards, setLoadingCards] = useState(false);
+  const [hoveredTerm, setHoveredTerm] = useState<string | null>(null);
+  
+  // markdown 파싱 결과
+  const parsedMarkdown = selectedLawData?.markdown ? parseMarkdown(selectedLawData.markdown) : null;
 
   // URL 파라미터에서 초기 카테고리 설정
   useEffect(() => {
@@ -410,23 +546,100 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
               </TabsList>
 
               <TabsContent value="easy" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <MessageCircle className="h-5 w-5 text-green-600" />
-                      쉬운 말 설명
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    {selectedLawData.markdown ? (
-                      <div className="border rounded-lg p-4 bg-muted/30">
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm]}
-                          className="markdown-body space-y-4 text-sm leading-relaxed"
-                        >
-                          {selectedLawData.markdown}
-                        </ReactMarkdown>
-                      </div>
+                <div className="grid lg:grid-cols-3 gap-6">
+                  {/* 왼쪽: 쉬운 말 설명 */}
+                  <div className="lg:col-span-2 space-y-4">
+                    {parsedMarkdown ? (
+                      <>
+                        {/* 법령정보 */}
+                        {parsedMarkdown.lawInfo && (
+                          <div className="border-l-4 border-blue-500 pl-4 py-2">
+                            <h4 className="font-semibold text-blue-800 mb-2">법령정보</h4>
+                            <div className="text-sm leading-relaxed text-muted-foreground">
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                className="markdown-body space-y-2"
+                              >
+                                {parsedMarkdown.lawInfo}
+                              </ReactMarkdown>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 쉬운 말 설명 및 요약 */}
+                        {parsedMarkdown.easyExplanation && (
+                          <div className="border-l-4 border-green-500 pl-4 py-2">
+                            <h4 className="font-semibold text-green-800 mb-2">쉬운 말 설명 및 요약</h4>
+                            <div className="text-sm leading-relaxed text-muted-foreground">
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                className="markdown-body space-y-4"
+                                components={{
+                                  strong: ({ children, ...props }) => {
+                                    const termText = typeof children === 'string' ? children : 
+                                      Array.isArray(children) ? children.filter(c => typeof c === 'string').join('') : '';
+                                    
+                                    if (parsedMarkdown.termDictionary.length > 0 && termText) {
+                                      const termDef = parsedMarkdown.termDictionary.find(t => t.term === termText);
+                                      
+                                      if (termDef) {
+                                        return (
+                                          <strong
+                                            {...props}
+                                            style={{ backgroundColor: '#fbceb1', cursor: 'pointer', padding: '0 2px' }}
+                                            onMouseEnter={() => setHoveredTerm(termDef.term)}
+                                            onMouseLeave={() => setHoveredTerm(null)}
+                                          >
+                                            {children}
+                                          </strong>
+                                        );
+                                      }
+                                    }
+                                    return <strong {...props}>{children}</strong>;
+                                  }
+                                }}
+                              >
+                                {parsedMarkdown.easyExplanation}
+                              </ReactMarkdown>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 개정 전후 비교 */}
+                        {parsedMarkdown.compare && (
+                          <div className="border-l-4 border-purple-500 pl-4 py-2">
+                            <h4 className="font-semibold text-purple-800 mb-2">개정 전후 비교</h4>
+                            <div className="space-y-3 text-sm leading-relaxed text-muted-foreground">
+                              {parsedMarkdown.compare.before && (
+                                <div>
+                                  <h5 className="text-sm font-medium mb-1 text-purple-700">개정 전</h5>
+                                  <div className="whitespace-pre-wrap">
+                                    <ReactMarkdown
+                                      remarkPlugins={[remarkGfm]}
+                                      className="markdown-body"
+                                    >
+                                      {parsedMarkdown.compare.before}
+                                    </ReactMarkdown>
+                                  </div>
+                                </div>
+                              )}
+                              {parsedMarkdown.compare.after && (
+                                <div>
+                                  <h5 className="text-sm font-medium mb-1 text-purple-700">개정 후</h5>
+                                  <div className="whitespace-pre-wrap">
+                                    <ReactMarkdown
+                                      remarkPlugins={[remarkGfm]}
+                                      className="markdown-body"
+                                    >
+                                      {parsedMarkdown.compare.after}
+                                    </ReactMarkdown>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </>
                     ) : (
                       <>
                         {selectedLawData.summary.map((card) => (
@@ -455,7 +668,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                         ))}
 
                         {selectedLawData.compare && (
-                          <Card className="bg-blue-50">
+                          <Card className="bg-purple-50">
                             <CardHeader>
                               <CardTitle className="text-base">개정 전후 비교</CardTitle>
                             </CardHeader>
@@ -477,8 +690,49 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                         )}
                       </>
                     )}
-                  </CardContent>
-                </Card>
+                  </div>
+
+                  {/* 오른쪽: 쉬운 말 사전 */}
+                  <div className="lg:col-span-1">
+                    <Card className="sticky top-4">
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Dictionary className="h-5 w-5 text-amber-600" />
+                          쉬운 말 사전
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <ScrollArea className="h-[600px]">
+                          {parsedMarkdown && parsedMarkdown.termDictionary.length > 0 ? (
+                            <div className="space-y-4 pr-4">
+                              {parsedMarkdown.termDictionary.map((term, idx) => (
+                                <div
+                                  key={idx}
+                                  className={`p-3 rounded-lg border transition-colors ${
+                                    hoveredTerm === term.term
+                                      ? 'bg-amber-50 border-amber-300'
+                                      : 'bg-muted/30 border-transparent'
+                                  }`}
+                                >
+                                  <div className="font-semibold text-sm mb-1" style={{ color: hoveredTerm === term.term ? '#fbceb1' : 'inherit' }}>
+                                    {term.term}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {term.definition}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-sm text-muted-foreground text-center py-8">
+                              용어 사전이 없습니다
+                            </div>
+                          )}
+                        </ScrollArea>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
               </TabsContent>
 
               <TabsContent value="original" className="space-y-4">

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useSearchParams, useLocation } from "react-router-dom";
 import { ArrowLeft, Users, Calendar, ArrowRight, FileText, Target, BookOpen, ExternalLink, FileSignature, Clock, CheckCircle, Loader2, Search, X } from "lucide-react";
 import { Button } from "./ui/button";
@@ -68,6 +68,26 @@ const formatCacheTimestamp = (iso: string) => {
   } catch {
     return iso;
   }
+};
+
+/**
+ * 검색어를 하이라이트 처리하는 함수
+ * @param text 원본 텍스트
+ * @param query 검색어
+ * @returns 하이라이트된 JSX 요소
+ */
+const highlightText = (text: string, query: string): React.ReactNode => {
+  if (!query || !text) return text;
+  
+  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+  const parts = text.split(regex);
+  
+  return parts.map((part, index) => {
+    if (regex.test(part)) {
+      return <strong key={index} className="font-bold text-primary">{part}</strong>;
+    }
+    return <span key={index}>{part}</span>;
+  });
 };
 
 export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
@@ -305,14 +325,15 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, youthBills, billReportResults, isSearchMode]);
 
-  // 검색어에 따라 청년 안건 목록 또는 bill_report 검색
+  // URL에서 검색어가 있을 때만 초기 검색 실행 (자동 검색 제거)
   useEffect(() => {
-    if (searchQuery.trim()) {
-      searchBillReportsData(searchQuery.trim());
+    if (searchQueryFromUrl && searchQueryFromUrl.trim()) {
+      searchBillReportsData(searchQueryFromUrl.trim());
     } else {
       loadYouthBills();
     }
-  }, [searchQuery, searchBillReportsData, loadYouthBills]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQueryFromUrl]);
 
   // 청년 안건 상세 정보 로드
   const loadBillDetail = async (billNo: string) => {
@@ -1059,13 +1080,15 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-3">
-                        <h3 className="text-lg font-semibold">{report.bill_nm || '의안명 없음'}</h3>
+                        <h3 className="text-lg font-semibold">
+                          {report.bill_nm ? highlightText(report.bill_nm, searchQuery) : '의안명 없음'}
+                        </h3>
                         <Badge variant="outline">{report.processing_status === 'completed' ? '완료' : report.processing_status}</Badge>
                       </div>
                       
                       {report.bill_summary && (
                         <p className="text-muted-foreground mb-4 leading-relaxed">
-                          {report.bill_summary}
+                          {highlightText(report.bill_summary, searchQuery)}
                         </p>
                       )}
 
@@ -1074,19 +1097,25 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
                         {report.proposal_reason && report.proposal_reason.toLowerCase().includes(searchQuery.toLowerCase()) && (
                           <div className="bg-blue-50 p-3 rounded-lg">
                             <p className="text-xs text-blue-600 font-semibold mb-1">제안이유</p>
-                            <p className="text-muted-foreground line-clamp-2">{report.proposal_reason}</p>
+                            <p className="text-muted-foreground line-clamp-2">
+                              {highlightText(report.proposal_reason, searchQuery)}
+                            </p>
                           </div>
                         )}
                         {report.expected_effects && report.expected_effects.toLowerCase().includes(searchQuery.toLowerCase()) && (
                           <div className="bg-amber-50 p-3 rounded-lg">
                             <p className="text-xs text-amber-600 font-semibold mb-1">예상효과</p>
-                            <p className="text-muted-foreground line-clamp-2">{report.expected_effects}</p>
+                            <p className="text-muted-foreground line-clamp-2">
+                              {highlightText(report.expected_effects, searchQuery)}
+                            </p>
                           </div>
                         )}
                         {report.major_changes && report.major_changes.toLowerCase().includes(searchQuery.toLowerCase()) && (
                           <div className="bg-green-50 p-3 rounded-lg">
                             <p className="text-xs text-green-600 font-semibold mb-1">주요 변경점</p>
-                            <p className="text-muted-foreground line-clamp-2">{report.major_changes}</p>
+                            <p className="text-muted-foreground line-clamp-2">
+                              {highlightText(report.major_changes, searchQuery)}
+                            </p>
                           </div>
                         )}
                       </div>

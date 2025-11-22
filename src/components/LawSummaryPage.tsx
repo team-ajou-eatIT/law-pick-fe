@@ -583,7 +583,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
 
                         {/* 쉬운 말 설명 및 요약 */}
                         {parsedMarkdown.easyExplanation && (
-                          <div className="border-l-4 border-green-500 pl-6 py-2">
+                          <div className="border-l-4 border-green-500 pl-10 py-2">
                             <h4 className="font-semibold text-green-800 mb-2">쉬운 말 설명 및 요약</h4>
                             <div className="text-sm leading-relaxed text-muted-foreground">
                               <ReactMarkdown
@@ -836,9 +836,10 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                           <Button
                             variant="outline"
                             size="icon"
-                            className="absolute left-4 top-1/2 -translate-y-1/2 h-12 w-12 rounded-full bg-white/90 hover:bg-white shadow-lg z-10"
+                            className="absolute left-4 top-1/2 -translate-y-1/2 h-12 w-12 rounded-full bg-white/90 hover:bg-white shadow-lg z-20"
                             onClick={handlePreviousCard}
                             aria-label="이전 카드"
+                            type="button"
                           >
                             <ChevronLeft className="h-6 w-6" />
                           </Button>
@@ -849,9 +850,11 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                           <Button
                             variant="outline"
                             size="icon"
-                            className="absolute right-4 top-1/2 -translate-y-1/2 h-12 w-12 rounded-full bg-white/90 hover:bg-white shadow-lg z-10"
+                            className="absolute top-1/2 -translate-y-1/2 h-12 w-12 rounded-full bg-white/90 hover:bg-white shadow-lg z-20"
                             onClick={handleNextCard}
                             aria-label="다음 카드"
+                            type="button"
+                            style={{ right: '1rem', left: 'auto' }}
                           >
                             <ChevronRight className="h-6 w-6" />
                           </Button>

@@ -583,7 +583,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
 
                         {/* 쉬운 말 설명 및 요약 */}
                         {parsedMarkdown.easyExplanation && (
-                          <div className="border-l-4 border-green-500 pl-4 py-2">
+                          <div className="border-l-4 border-green-500 pl-6 py-2">
                             <h4 className="font-semibold text-green-800 mb-2">쉬운 말 설명 및 요약</h4>
                             <div className="text-sm leading-relaxed text-muted-foreground">
                               <ReactMarkdown
@@ -831,49 +831,64 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                           />
                         </div>
                         
-                        {/* 이전 버튼 */}
+                        {/* 이전 버튼 (좌측 중간) */}
                         {currentCardIndex > 0 && (
                           <Button
                             variant="outline"
                             size="icon"
-                            className="absolute left-4 top-1/2 -translate-y-1/2 h-12 w-12 rounded-full bg-white/90 hover:bg-white shadow-lg"
+                            className="absolute left-4 top-1/2 -translate-y-1/2 h-12 w-12 rounded-full bg-white/90 hover:bg-white shadow-lg z-10"
                             onClick={handlePreviousCard}
+                            aria-label="이전 카드"
                           >
                             <ChevronLeft className="h-6 w-6" />
                           </Button>
                         )}
                         
-                        {/* 다음 버튼 */}
+                        {/* 다음 버튼 (우측 중간) */}
                         {currentCardIndex < cardNewsData.images.length - 1 && (
                           <Button
                             variant="outline"
                             size="icon"
-                            className="absolute right-4 top-1/2 -translate-y-1/2 h-12 w-12 rounded-full bg-white/90 hover:bg-white shadow-lg"
+                            className="absolute right-4 top-1/2 -translate-y-1/2 h-12 w-12 rounded-full bg-white/90 hover:bg-white shadow-lg z-10"
                             onClick={handleNextCard}
+                            aria-label="다음 카드"
                           >
                             <ChevronRight className="h-6 w-6" />
                           </Button>
                         )}
                         
-                        {/* 카드 인디케이터 */}
-                        <div className="flex justify-center gap-2 mt-4">
-                          {cardNewsData.images.map((_, idx) => (
-                            <button
-                              key={idx}
-                              onClick={() => setCurrentCardIndex(idx)}
-                              className={`h-2 rounded-full transition-all ${
-                                currentCardIndex === idx
-                                  ? 'w-8 bg-primary'
-                                  : 'w-2 bg-muted-foreground/30 hover:bg-muted-foreground/50'
-                              }`}
-                              aria-label={`카드 ${idx + 1}로 이동`}
+                        {/* 카드 인디케이터 및 진행바 */}
+                        <div className="mt-6 space-y-3">
+                          {/* 진행바 */}
+                          <div className="w-full bg-muted-foreground/20 rounded-full h-2 overflow-hidden">
+                            <div
+                              className="bg-primary h-full rounded-full transition-all duration-300 ease-out"
+                              style={{
+                                width: `${((currentCardIndex + 1) / cardNewsData.images.length) * 100}%`
+                              }}
                             />
-                          ))}
-                        </div>
-                        
-                        {/* 카드 번호 표시 */}
-                        <div className="text-center text-sm text-muted-foreground mt-2">
-                          {currentCardIndex + 1} / {cardNewsData.images.length}
+                          </div>
+                          
+                          {/* 카드 인디케이터 점 */}
+                          <div className="flex justify-center items-center gap-2">
+                            {cardNewsData.images.map((_, idx) => (
+                              <button
+                                key={idx}
+                                onClick={() => setCurrentCardIndex(idx)}
+                                className={`rounded-full transition-all duration-200 ${
+                                  currentCardIndex === idx
+                                    ? 'w-3 h-3 bg-primary ring-2 ring-primary ring-offset-2'
+                                    : 'w-2.5 h-2.5 bg-muted-foreground/40 hover:bg-muted-foreground/60'
+                                }`}
+                                aria-label={`카드 ${idx + 1}로 이동`}
+                              />
+                            ))}
+                          </div>
+                          
+                          {/* 카드 번호 표시 */}
+                          <div className="text-center text-sm text-muted-foreground font-medium">
+                            {currentCardIndex + 1} / {cardNewsData.images.length}
+                          </div>
                         </div>
                       </div>
                     ) : (

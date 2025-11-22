@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams, useLocation } from "react-router-dom";
-import { ArrowLeft, FileText, Search, Sparkles, BookOpen, MessageCircle, Copy, ExternalLink, Calendar, Loader2, X } from "lucide-react";
+import { ArrowLeft, FileText, Search, Sparkles, BookOpen, MessageCircle, Copy, ExternalLink, Calendar, Loader2, X, ChevronLeft, ChevronRight } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Button } from "./ui/button";
@@ -193,6 +193,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
   const [loading, setLoading] = useState(false);
   const [loadingCards, setLoadingCards] = useState(false);
   const [hoveredTerm, setHoveredTerm] = useState<string | null>(null);
+  const [currentCardIndex, setCurrentCardIndex] = useState(0);
   
   // markdown 파싱 결과
   const parsedMarkdown = selectedLawData?.markdown ? parseMarkdown(selectedLawData.markdown) : null;
@@ -415,11 +416,25 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
 
     if (response.data) {
       setCardNewsData(response.data);
+      setCurrentCardIndex(0); // 카드뉴스 로드 시 첫 번째 카드로 초기화
     } else {
       console.error("카드뉴스 로드 실패:", response.error);
     }
 
     setLoadingCards(false);
+  };
+
+  // 카드뉴스 이전/다음 핸들러
+  const handlePreviousCard = () => {
+    if (cardNewsData && currentCardIndex > 0) {
+      setCurrentCardIndex(currentCardIndex - 1);
+    }
+  };
+
+  const handleNextCard = () => {
+    if (cardNewsData && currentCardIndex < cardNewsData.images.length - 1) {
+      setCurrentCardIndex(currentCardIndex + 1);
+    }
   };
 
   const handleCopy = (text: string) => {
@@ -586,7 +601,13 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                                         return (
                                           <strong
                                             {...props}
-                                            style={{ backgroundColor: '#fbceb1', cursor: 'pointer', padding: '0 2px' }}
+                                            style={{ 
+                                              backgroundColor: '#fbceb1', 
+                                              color: '#000000',
+                                              fontWeight: 'bold',
+                                              cursor: 'pointer', 
+                                              padding: '0 2px' 
+                                            }}
                                             onMouseEnter={() => setHoveredTerm(termDef.term)}
                                             onMouseLeave={() => setHoveredTerm(null)}
                                           >
@@ -710,11 +731,11 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                                   key={idx}
                                   className={`p-3 rounded-lg border transition-colors ${
                                     hoveredTerm === term.term
-                                      ? 'bg-amber-50 border-amber-300'
+                                      ? 'bg-green-50 border-green-500'
                                       : 'bg-muted/30 border-transparent'
                                   }`}
                                 >
-                                  <div className="font-semibold text-sm mb-1" style={{ color: hoveredTerm === term.term ? '#fbceb1' : 'inherit' }}>
+                                  <div className="font-semibold text-sm mb-1">
                                     {term.term}
                                   </div>
                                   <div className="text-xs text-muted-foreground">
@@ -799,21 +820,62 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                         </div>
                         <p className="text-muted-foreground">카드뉴스를 불러오는 중...</p>
                       </div>
-                    ) : cardNewsData ? (
-                      <ScrollArea className="h-[600px]">
-                        <div className="space-y-4 pr-4">
-                          {cardNewsData.images.map((imageUrl, idx) => (
-                            <div key={idx} className="border rounded-lg overflow-hidden">
-                              <img
-                                src={`${API_BASE_URL}${imageUrl}`}
-                                alt={`카드 ${idx + 1}`}
-                                className="w-full h-auto"
-                                loading="lazy"
-                              />
-                            </div>
+                    ) : cardNewsData && cardNewsData.images.length > 0 ? (
+                      <div className="relative">
+                        <div className="border rounded-lg overflow-hidden bg-muted/30">
+                          <img
+                            src={`${API_BASE_URL}${cardNewsData.images[currentCardIndex]}`}
+                            alt={`카드 ${currentCardIndex + 1}`}
+                            className="w-full h-auto"
+                            loading="lazy"
+                          />
+                        </div>
+                        
+                        {/* 이전 버튼 */}
+                        {currentCardIndex > 0 && (
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="absolute left-4 top-1/2 -translate-y-1/2 h-12 w-12 rounded-full bg-white/90 hover:bg-white shadow-lg"
+                            onClick={handlePreviousCard}
+                          >
+                            <ChevronLeft className="h-6 w-6" />
+                          </Button>
+                        )}
+                        
+                        {/* 다음 버튼 */}
+                        {currentCardIndex < cardNewsData.images.length - 1 && (
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="absolute right-4 top-1/2 -translate-y-1/2 h-12 w-12 rounded-full bg-white/90 hover:bg-white shadow-lg"
+                            onClick={handleNextCard}
+                          >
+                            <ChevronRight className="h-6 w-6" />
+                          </Button>
+                        )}
+                        
+                        {/* 카드 인디케이터 */}
+                        <div className="flex justify-center gap-2 mt-4">
+                          {cardNewsData.images.map((_, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => setCurrentCardIndex(idx)}
+                              className={`h-2 rounded-full transition-all ${
+                                currentCardIndex === idx
+                                  ? 'w-8 bg-primary'
+                                  : 'w-2 bg-muted-foreground/30 hover:bg-muted-foreground/50'
+                              }`}
+                              aria-label={`카드 ${idx + 1}로 이동`}
+                            />
                           ))}
                         </div>
-                      </ScrollArea>
+                        
+                        {/* 카드 번호 표시 */}
+                        <div className="text-center text-sm text-muted-foreground mt-2">
+                          {currentCardIndex + 1} / {cardNewsData.images.length}
+                        </div>
+                      </div>
                     ) : (
                       <div className="text-center py-8 text-muted-foreground">
                         카드뉴스가 생성되지 않았습니다

@@ -64,6 +64,7 @@ export async function getLawList(params?: {
   category?: string;
   page?: number;
   size?: number;
+  search?: string;
 }) {
   return get<LawListResponse>(API_ENDPOINTS.laws, params);
 }

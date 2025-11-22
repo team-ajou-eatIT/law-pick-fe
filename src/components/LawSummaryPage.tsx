@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams, useLocation } from "react-router-dom";
-import { ArrowLeft, FileText, Search, Sparkles, BookOpen, MessageCircle, Copy, ExternalLink, Calendar, Loader2, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, FileText, Search, Sparkles, BookOpen, MessageCircle, Copy, ExternalLink, Calendar, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Button } from "./ui/button";
@@ -241,7 +241,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
   // 법령 목록 가져오기
   useEffect(() => {
     loadLaws();
-  }, [selectedCategories]);
+  }, [selectedCategories, searchQueryFromUrl]);
 
   const loadLaws = async () => {
     setLoading(true);
@@ -253,10 +253,14 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
         ? CATEGORY_MAP[Array.from(selectedCategories)[0]]
         : undefined;
       
+      // 검색어가 있으면 백엔드로 전달, 없으면 undefined
+      const search = searchQueryFromUrl.trim() || undefined;
+      
       const response = await getLawList({
         category,
         page: 1,
-        size: 100
+        size: 100,
+        search
       });
 
       if (response.data) {
@@ -441,18 +445,8 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     navigator.clipboard.writeText(text);
   };
 
-  // 검색 필터링
-  const normalizedQuery = searchQuery.trim().toLowerCase();
-  const filteredLaws = laws.filter((law) => {
-    if (normalizedQuery === "") return true;
-    const targets = [
-      law.title,
-      law.short_desc,
-      law.one_line_summary,
-      law.responsible_ministry
-    ].filter(Boolean);
-    return targets.some((value) => value?.toLowerCase().includes(normalizedQuery));
-  });
+  // 백엔드에서 이미 검색 필터링이 완료되었으므로 클라이언트 사이드 필터링 제거
+  const filteredLaws = laws;
 
   // 법령 상세보기 화면
   if (selectedLaw) {
@@ -583,7 +577,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
 
                         {/* 쉬운 말 설명 및 요약 */}
                         {parsedMarkdown.easyExplanation && (
-                          <div className="border-l-4 border-green-500 pl-10 py-2">
+                          <div className="border-l-4 border-green-500 pl-6 py-2">
                             <h4 className="font-semibold text-green-800 mb-2">쉬운 말 설명 및 요약</h4>
                             <div className="text-sm leading-relaxed text-muted-foreground">
                               <ReactMarkdown
@@ -974,20 +968,9 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                   value={searchQuery}
                   onChange={(e) => handleSearchChange(e.target.value)}
                   onKeyDown={handleSearchKeyDown}
-                  className="pl-9 pr-9 h-9"
+                  className="pl-9 pr-3 h-9"
                   disabled={loading}
                 />
-                {searchQuery && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7"
-                    onClick={handleSearchClear}
-                    disabled={loading}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                )}
               </div>
               <Button
                 size="sm"

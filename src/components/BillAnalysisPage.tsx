@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useSearchParams, useLocation } from "react-router-dom";
-import { ArrowLeft, Users, Calendar, ArrowRight, FileText, Target, BookOpen, ExternalLink, FileSignature, Clock, CheckCircle, Loader2, Search, X } from "lucide-react";
+import { ArrowLeft, Users, Calendar, ArrowRight, FileText, Target, BookOpen, ExternalLink, FileSignature, Clock, CheckCircle, Loader2, Search } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -981,20 +981,9 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
                   value={searchQuery}
                   onChange={(e) => handleSearchChange(e.target.value)}
                   onKeyDown={handleSearchKeyDown}
-                  className="pl-9 pr-9 h-9"
+                  className="pl-9 pr-3 h-9"
                   disabled={loading}
                 />
-                {searchQuery && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7"
-                    onClick={handleSearchClear}
-                    disabled={loading}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                )}
               </div>
               <Button
                 size="sm"
@@ -1076,7 +1065,6 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
                         <h3 className="text-lg font-semibold">
                           {report.bill_nm ? highlightText(report.bill_nm, searchQuery) : '의안명 없음'}
                         </h3>
-                        <Badge variant="outline">{report.processing_status === 'completed' ? '완료' : report.processing_status}</Badge>
                       </div>
                       
                       {report.bill_summary && (

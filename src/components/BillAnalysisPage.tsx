@@ -1019,9 +1019,13 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
         {!loading && !isSearchMode && (
           <div className="grid gap-6">
             {filteredBills.map((bill) => (
-              <Card key={bill.bill_no} className="hover:shadow-lg transition-all cursor-pointer">
+              <Card 
+                key={bill.bill_no} 
+                className="hover:shadow-lg transition-all cursor-pointer"
+                onClick={() => handleBillSelect(bill)}
+              >
                 <CardContent className="p-6">
-                  <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-3">
                         <h3 className="text-lg font-semibold">{bill.bill_nm || '의안명 없음'}</h3>
@@ -1049,21 +1053,6 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
                         )}
                       </div>
                     </div>
-                    
-                    <Button 
-                      onClick={() => handleBillSelect(bill)}
-                      className="flex-shrink-0"
-                      disabled={detailLoading}
-                    >
-                      {detailLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <>
-                          상세보기
-                          <ArrowRight className="ml-2 h-4 w-4" />
-                        </>
-                      )}
-                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -1075,9 +1064,13 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
         {!loading && isSearchMode && (
           <div className="grid gap-6">
             {billReportResults.map((report) => (
-              <Card key={report.bill_no} className="hover:shadow-lg transition-all cursor-pointer">
+              <Card 
+                key={report.bill_no} 
+                className="hover:shadow-lg transition-all cursor-pointer"
+                onClick={() => handleBillReportSelect(report)}
+              >
                 <CardContent className="p-6">
-                  <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-3">
                         <h3 className="text-lg font-semibold">
@@ -1135,21 +1128,6 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
                         )}
                       </div>
                     </div>
-                    
-                    <Button 
-                      onClick={() => handleBillReportSelect(report)}
-                      className="flex-shrink-0"
-                      disabled={detailLoading}
-                    >
-                      {detailLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <>
-                          상세보기
-                          <ArrowRight className="ml-2 h-4 w-4" />
-                        </>
-                      )}
-                    </Button>
                   </div>
                 </CardContent>
               </Card>

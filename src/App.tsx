@@ -1,4 +1,4 @@
-import { useState } from "react";
+//import { useState } from "react";
 import {
   Routes,
   Route,
@@ -82,7 +82,7 @@ function BillAnalysisPageWrapper() {
 
 function MainPage() {
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState("");
+/*  const [searchQuery, setSearchQuery] = useState("");
 
   const handleSearch = () => {
     const trimmedQuery = searchQuery.trim();
@@ -99,7 +99,7 @@ function MainPage() {
       handleSearch();
     }
   };
-
+*/
   const navigateToPage = (page: string) => {
     navigate(`/${page}`);
   };
@@ -340,7 +340,7 @@ function MainPage() {
       {/* Main Content */}
       <div className="relative z-10">
         {/* Hero Section */}
-        <section className="pt-32 pb-12 px-4">
+        <section className="min-h-screen pt-32 pb-12 px-4">
           <div className="container mx-auto text-center max-w-5xl">
             <h1 className="mb-4">
               <span
@@ -651,34 +651,7 @@ function MainPage() {
             </div>
 
             <div className="grid md:grid-cols-3 gap-6">
-              {/* 법률 챗봇 */}
-              <Card className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-2">
-                <CardHeader>
-                  <div className="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center mb-4">
-                    <MessageCircle className="h-6 w-6 text-blue-600" />
-                  </div>
-                  <CardTitle className="text-xl">
-                    {" "}
-                    AI 법령 어시스턴트
-                  </CardTitle>
-                  <CardDescription className="text-base leading-relaxed">
-                    궁금한 법률 문제, 지금 바로 질문해보세요.
-                    AI가 실시간으로 관련 법령 정보를 찾아 쉽고 빠르게 답변해드립니다.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button
-                    onClick={() => navigateToPage("chatbot")}
-                    variant="outline"
-                    className="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-colors"
-                  >
-                    채팅 시작하기
-                    <MessageCircle className="ml-2 h-4 w-4" />
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {/* 나머지 기능들 */}
+              {/* 쉬운말 요약 & 가결안 분석 (왼쪽, 가운데) */}
               {features.map((feature, index) => {
                 const Icon = feature.icon;
                 const pageMap: { [key: string]: string } = {
@@ -720,6 +693,33 @@ function MainPage() {
                   </Card>
                 );
               })}
+
+              {/* 법률 챗봇 (오른쪽) */}
+              <Card className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-2">
+                <CardHeader>
+                  <div className="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center mb-4">
+                    <MessageCircle className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <CardTitle className="text-xl">
+                    {" "}
+                    AI 법령 어시스턴트
+                  </CardTitle>
+                  <CardDescription className="text-base leading-relaxed">
+                    궁금한 법률 문제, 지금 바로 질문해보세요.
+                    AI가 실시간으로 관련 법령 정보를 찾아 쉽고 빠르게 답변해드립니다.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    onClick={() => navigateToPage("chatbot")}
+                    variant="outline"
+                    className="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-colors"
+                  >
+                    채팅 시작하기
+                    <MessageCircle className="ml-2 h-4 w-4" />
+                  </Button>
+                </CardContent>
+              </Card>
             </div>
           </div>
         </section>

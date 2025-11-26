@@ -235,8 +235,13 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
       if (law && law.law_id !== selectedLaw?.law_id) {
         handleLawSelect(law);
       }
+    } else if (!lawIdFromUrl && selectedLaw) {
+      // 브라우저 뒤로가기 등으로 law_id가 사라진 경우: 상세 상태 초기화
+      setSelectedLaw(null);
+      setSelectedLawData(null);
+      setCardNewsData(null);
     }
-  }, [searchParams, laws]);
+  }, [searchParams, laws, selectedLaw]);
 
   // 법령 목록 가져오기
   useEffect(() => {

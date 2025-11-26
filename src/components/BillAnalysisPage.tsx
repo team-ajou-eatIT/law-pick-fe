@@ -321,9 +321,12 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
           handleBillSelect(bill);
         }
       }
+    } else if (!billNoFromUrl && selectedBill) {
+      // 브라우저 뒤로가기 등으로 bill_no가 사라진 경우: 상세 상태 초기화
+      setSelectedBill(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, youthBills, billReportResults, isSearchMode]);
+  }, [searchParams, youthBills, billReportResults, isSearchMode, selectedBill]);
 
   // URL에서 검색어가 있을 때만 초기 검색 실행 (자동 검색 제거)
   useEffect(() => {

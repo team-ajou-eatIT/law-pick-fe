@@ -9,6 +9,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { ScrollArea } from "./ui/scroll-area";
 import { Badge } from "./ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 import { API_BASE_URL } from "../api/config";
 import { getLawList, getLawDetail, getLawCards, type LawListItem, type LawSummaryResponse, type LawCardsResponse } from "../api/law-easy";
 
@@ -178,6 +185,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
   // URL에서 초기값 가져오기
   const categoryFromUrl = searchParams.get("category");
   const searchQueryFromUrl = searchParams.get("search") || "";
+  const searchTypeFromUrl = searchParams.get("search_type") || "all";
 
   // /summary/all 경로인지 확인
   const isAllPath = location.pathname === '/summary/all' || location.pathname === '/summary';
@@ -185,6 +193,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
   // 선택된 카테고리를 Set으로 관리 (토글 방식)
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState<string>(searchQueryFromUrl);
+  const [searchType, setSearchType] = useState<'all' | 'title' | 'ministry' | 'content'>(searchTypeFromUrl as 'all' | 'title' | 'ministry' | 'content' || 'all');
   const [selectedLaw, setSelectedLaw] = useState<LawListItem | null>(null);
   const [selectedLawData, setSelectedLawData] = useState<LawSummaryResponse | null>(null);
   const [cardNewsData, setCardNewsData] = useState<LawCardsResponse | null>(null);
@@ -225,7 +234,12 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     if (searchQueryFromUrl) {
       setSearchQuery(searchQueryFromUrl);
     }
-  }, [categoryFromUrl, searchQueryFromUrl, isAllPath]);
+
+    // 검색 타입 설정
+    if (searchTypeFromUrl && ['all', 'title', 'ministry', 'content'].includes(searchTypeFromUrl)) {
+      setSearchType(searchTypeFromUrl as 'all' | 'title' | 'ministry' | 'content');
+    }
+  }, [categoryFromUrl, searchQueryFromUrl, searchTypeFromUrl, isAllPath]);
 
   // URL에 law_id가 있으면 해당 법령 자동 로드
   useEffect(() => {
@@ -246,7 +260,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
   // 법령 목록 가져오기
   useEffect(() => {
     loadLaws();
-  }, [selectedCategories, searchQueryFromUrl]);
+  }, [selectedCategories, searchQueryFromUrl, searchTypeFromUrl]);
 
   const loadLaws = async () => {
     setLoading(true);
@@ -261,11 +275,14 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
       // 검색어가 있으면 백엔드로 전달, 없으면 undefined
       const search = searchQueryFromUrl.trim() || undefined;
       
+      // 백엔드가 search_type을 지원하는 경우를 대비해 파라미터 구성
+      // 현재는 search만 전달하지만, 백엔드가 search_type을 지원하면 추가 가능
       const response = await getLawList({
         category,
         page: 1,
         size: 100,
-        search
+        search,
+        // 백엔드가 지원하면 주석 해제: search_type: searchType !== 'all' ? searchType : undefined
       });
 
       if (response.data) {
@@ -321,6 +338,9 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     if (searchQuery.trim()) {
       params.search = searchQuery.trim();
     }
+    if (searchType !== 'all') {
+      params.search_type = searchType;
+    }
     setSearchParams(params, { replace: true });
   };
 
@@ -342,12 +362,16 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     if (searchQuery.trim()) {
       params.search = searchQuery.trim();
     }
+    if (searchType !== 'all') {
+      params.search_type = searchType;
+    }
     setSearchParams(params, { replace: true });
   };
 
   // 검색어 초기화 핸들러
   const handleSearchClear = () => {
     setSearchQuery("");
+    setSearchType('all');
     setSelectedLaw(null);
     setSelectedLawData(null);
     setCardNewsData(null);
@@ -380,6 +404,9 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     }
     if (searchQuery.trim()) {
       params.search = searchQuery.trim();
+    }
+    if (searchType !== 'all') {
+      params.search_type = searchType;
     }
     setSearchParams(params);
 
@@ -964,12 +991,34 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
             </div>
             
             {/* 검색 입력 */}
-            <div className="flex items-center gap-2 flex-1 min-w-[200px] max-w-[400px]">
+            <div className="flex items-center gap-2 flex-1 min-w-[300px] max-w-[500px]">
+              {/* 검색 타입 선택 */}
+              <Select
+                value={searchType}
+                onValueChange={(value) => setSearchType(value as 'all' | 'title' | 'ministry' | 'content')}
+                disabled={loading}
+              >
+                <SelectTrigger className="w-[140px] h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">전체 검색</SelectItem>
+                  <SelectItem value="title">법령명</SelectItem>
+                  <SelectItem value="ministry">소관 부처</SelectItem>
+                  <SelectItem value="content">내용</SelectItem>
+                </SelectContent>
+              </Select>
+              
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="text"
-                  placeholder="법령명, 내용 검색..."
+                  placeholder={
+                    searchType === 'all' ? '법령명, 내용, 소관 부처 검색...' :
+                    searchType === 'title' ? '법령명을 입력하세요...' :
+                    searchType === 'ministry' ? '소관 부처를 입력하세요...' :
+                    '내용을 입력하세요...'
+                  }
                   value={searchQuery}
                   onChange={(e) => handleSearchChange(e.target.value)}
                   onKeyDown={handleSearchKeyDown}

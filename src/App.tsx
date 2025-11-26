@@ -593,10 +593,9 @@ function MainPage() {
               </a>
             </div>
 
-            {/* Search Bar */}
+            {/* Search Bar (disabled)
             <div className="max-w-4xl mx-auto">
               <div className="relative backdrop-blur-[0px] bg-[rgba(140,140,140,0.09)] rounded-[39px] border border-[rgba(140,140,140,0.1)] h-[78px] flex items-center px-4">
-                {/* Search Input */}
                 <input
                   type="text"
                   placeholder="  예시) 새로 이사한 곳에서 주민등록 전입신고는 어떻게 하나요?"
@@ -612,10 +611,6 @@ function MainPage() {
                   }}
                 />
 
-                {/* Microphone Icon */}
-                
-
-                {/* Search Button */}
                 <button
                   onClick={handleSearch}
                   className="flex-shrink-0 w-[64px] h-[64px] bg-[#2B00FF] rounded-[32px] flex items-center justify-center hover:bg-[#2500DD] transition-colors"
@@ -636,6 +631,7 @@ function MainPage() {
                 </button>
               </div>
             </div>
+            */}
           </div>
         </section>
 

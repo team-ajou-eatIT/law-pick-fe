@@ -260,7 +260,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
   // 법령 목록 가져오기
   useEffect(() => {
     loadLaws();
-  }, [selectedCategories, searchQueryFromUrl, searchTypeFromUrl]);
+  }, [selectedCategories, searchQueryFromUrl, searchType]);
 
   const loadLaws = async () => {
     setLoading(true);
@@ -299,6 +299,35 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
             categoryKeys.includes(law.category)
           );
         }
+        
+        // 검색 타입별 필터링 (백엔드가 search_type을 지원하지 않는 경우 클라이언트 사이드 필터링)
+        // 백엔드가 search_type을 지원하면 이 부분은 불필요하지만, 이중 필터링으로 안전장치 역할
+        if (search && searchType !== 'all') {
+          const searchLower = search.toLowerCase();
+          filtered = filtered.filter(law => {
+            switch (searchType) {
+              case 'title':
+                return law.title?.toLowerCase().includes(searchLower) ?? false;
+              case 'ministry':
+                return law.responsible_ministry?.toLowerCase().includes(searchLower) ?? false;
+              case 'content':
+                return (
+                  law.short_desc?.toLowerCase().includes(searchLower) ?? false ||
+                  law.one_line_summary?.toLowerCase().includes(searchLower) ?? false
+                );
+              default:
+                return true;
+            }
+          });
+        }
+        
+        // 소관부처 기준 가나다 순 정렬
+        filtered.sort((a, b) => {
+          const ministryA = a.responsible_ministry || '';
+          const ministryB = b.responsible_ministry || '';
+          // 한국어 가나다 순 정렬
+          return ministryA.localeCompare(ministryB, 'ko');
+        });
         
         setLaws(filtered);
       } else {

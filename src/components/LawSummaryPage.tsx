@@ -16,6 +16,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+  PaginationEllipsis,
+} from "./ui/pagination";
 import { API_BASE_URL } from "../api/config";
 import { getLawList, getLawDetail, getLawCards, type LawListItem, type LawSummaryResponse, type LawCardsResponse } from "../api/law-easy";
 
@@ -186,6 +195,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
   const categoryFromUrl = searchParams.get("category");
   const searchQueryFromUrl = searchParams.get("search") || "";
   const searchTypeFromUrl = searchParams.get("search_type") || "all";
+  const pageFromUrl = parseInt(searchParams.get("page") || "1", 10);
 
   // /summary/all 경로인지 확인
   const isAllPath = location.pathname === '/summary/all' || location.pathname === '/summary';
@@ -199,10 +209,14 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
   const [cardNewsData, setCardNewsData] = useState<LawCardsResponse | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [laws, setLaws] = useState<LawListItem[]>([]);
+  const [allLaws, setAllLaws] = useState<LawListItem[]>([]); // 필터링 전 전체 데이터
+  const [currentPage, setCurrentPage] = useState<number>(pageFromUrl);
   const [loading, setLoading] = useState(false);
   const [loadingCards, setLoadingCards] = useState(false);
   const [hoveredTerm, setHoveredTerm] = useState<string | null>(null);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
+  
+  const ITEMS_PER_PAGE = 30;
   
   // markdown 파싱 결과
   const parsedMarkdown = selectedLawData?.markdown ? parseMarkdown(selectedLawData.markdown) : null;
@@ -239,7 +253,12 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     if (searchTypeFromUrl && ['all', 'title', 'ministry', 'content'].includes(searchTypeFromUrl)) {
       setSearchType(searchTypeFromUrl as 'all' | 'title' | 'ministry' | 'content');
     }
-  }, [categoryFromUrl, searchQueryFromUrl, searchTypeFromUrl, isAllPath]);
+
+    // 페이지 설정
+    if (pageFromUrl >= 1) {
+      setCurrentPage(pageFromUrl);
+    }
+  }, [categoryFromUrl, searchQueryFromUrl, searchTypeFromUrl, pageFromUrl, isAllPath]);
 
   // URL에 law_id가 있으면 해당 법령 자동 로드
   useEffect(() => {
@@ -262,6 +281,11 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     loadLaws();
   }, [selectedCategories, searchQueryFromUrl, searchType]);
 
+  // 필터링 및 페이징 적용
+  useEffect(() => {
+    applyFilteringAndPaging();
+  }, [allLaws, selectedCategories, searchQueryFromUrl, searchType, currentPage]);
+
   const loadLaws = async () => {
     setLoading(true);
     
@@ -277,59 +301,18 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
       
       // 백엔드가 search_type을 지원하는 경우를 대비해 파라미터 구성
       // 현재는 search만 전달하지만, 백엔드가 search_type을 지원하면 추가 가능
+      // 페이징을 위해 충분한 데이터를 받아옴 (필터링 후에도 페이징 가능하도록)
       const response = await getLawList({
         category,
         page: 1,
-        size: 100,
+        size: 1000, // 충분한 데이터를 받아와서 클라이언트 사이드 필터링 및 페이징
         search,
         // 백엔드가 지원하면 주석 해제: search_type: searchType !== 'all' ? searchType : undefined
       });
 
       if (response.data) {
-        // 백엔드에서 이미 필터링된 결과를 받으므로, 
-        // 추가 필터링이 필요한 경우(카테고리가 선택되지 않았을 때)만 처리
-        let filtered = response.data.items;
-        
-        // 선택된 카테고리가 여러 개일 때만 클라이언트 사이드 필터링
-        // (백엔드는 단일 카테고리만 지원하므로)
-        if (selectedCategories.size > 1) {
-          // 선택된 한글 카테고리를 영어 키로 변환
-          const categoryKeys = Array.from(selectedCategories).map(cat => CATEGORY_MAP[cat]);
-          filtered = filtered.filter(law => 
-            categoryKeys.includes(law.category)
-          );
-        }
-        
-        // 검색 타입별 필터링 (백엔드가 search_type을 지원하지 않는 경우 클라이언트 사이드 필터링)
-        // 백엔드가 search_type을 지원하면 이 부분은 불필요하지만, 이중 필터링으로 안전장치 역할
-        if (search && searchType !== 'all') {
-          const searchLower = search.toLowerCase();
-          filtered = filtered.filter(law => {
-            switch (searchType) {
-              case 'title':
-                return law.title?.toLowerCase().includes(searchLower) ?? false;
-              case 'ministry':
-                return law.responsible_ministry?.toLowerCase().includes(searchLower) ?? false;
-              case 'content':
-                return (
-                  law.short_desc?.toLowerCase().includes(searchLower) ?? false ||
-                  law.one_line_summary?.toLowerCase().includes(searchLower) ?? false
-                );
-              default:
-                return true;
-            }
-          });
-        }
-        
-        // 소관부처 기준 가나다 순 정렬
-        filtered.sort((a, b) => {
-          const ministryA = a.responsible_ministry || '';
-          const ministryB = b.responsible_ministry || '';
-          // 한국어 가나다 순 정렬
-          return ministryA.localeCompare(ministryB, 'ko');
-        });
-        
-        setLaws(filtered);
+        // 백엔드에서 받은 전체 데이터를 저장 (필터링 전)
+        setAllLaws(response.data.items);
       } else {
         console.error("법령 목록 로드 실패:", response.error);
       }
@@ -338,6 +321,74 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     } finally {
       setLoading(false);
     }
+  };
+
+  // 필터링 및 페이징 적용 함수
+  const applyFilteringAndPaging = () => {
+    if (allLaws.length === 0) {
+      setLaws([]);
+      return;
+    }
+
+    // 백엔드에서 이미 필터링된 결과를 받으므로, 
+    // 추가 필터링이 필요한 경우(카테고리가 선택되지 않았을 때)만 처리
+    let filtered = [...allLaws];
+    
+    // 선택된 카테고리가 여러 개일 때만 클라이언트 사이드 필터링
+    // (백엔드는 단일 카테고리만 지원하므로)
+    if (selectedCategories.size > 1) {
+      // 선택된 한글 카테고리를 영어 키로 변환
+      const categoryKeys = Array.from(selectedCategories).map(cat => CATEGORY_MAP[cat]);
+      filtered = filtered.filter(law => 
+        categoryKeys.includes(law.category)
+      );
+    }
+    
+    // 검색 타입별 필터링 (백엔드가 search_type을 지원하지 않는 경우 클라이언트 사이드 필터링)
+    // 백엔드가 search_type을 지원하면 이 부분은 불필요하지만, 이중 필터링으로 안전장치 역할
+    if (searchQueryFromUrl && searchType !== 'all') {
+      const searchLower = searchQueryFromUrl.toLowerCase();
+      filtered = filtered.filter(law => {
+        switch (searchType) {
+          case 'title':
+            return law.title?.toLowerCase().includes(searchLower) ?? false;
+          case 'ministry':
+            return law.responsible_ministry?.toLowerCase().includes(searchLower) ?? false;
+          case 'content':
+            return (
+              (law.short_desc?.toLowerCase().includes(searchLower) ?? false) ||
+              (law.one_line_summary?.toLowerCase().includes(searchLower) ?? false)
+            );
+          default:
+            return true;
+        }
+      });
+    }
+    
+    // 소관부처 기준 가나다 순 정렬
+    filtered.sort((a, b) => {
+      const ministryA = a.responsible_ministry || '';
+      const ministryB = b.responsible_ministry || '';
+      // 한국어 가나다 순 정렬
+      return ministryA.localeCompare(ministryB, 'ko');
+    });
+    
+    // 페이징 적용
+    const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+    const validPage = Math.max(1, Math.min(currentPage, totalPages || 1));
+    
+    // 페이지가 유효 범위를 벗어나면 첫 페이지로 리셋
+    if (currentPage !== validPage && totalPages > 0) {
+      setCurrentPage(1);
+      const startIndex = 0;
+      const endIndex = ITEMS_PER_PAGE;
+      setLaws(filtered.slice(startIndex, endIndex));
+      return;
+    }
+    
+    const startIndex = (validPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    setLaws(filtered.slice(startIndex, endIndex));
   };
 
   // 카테고리 토글 핸들러 (단일 선택만 가능)
@@ -359,6 +410,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     setSelectedCategories(newCategories);
 
     // URL 업데이트
+    setCurrentPage(1); // 카테고리 변경 시 첫 페이지로 리셋
     const params: Record<string, string> = {};
     if (newCategories.size > 0) {
       const categoryStrings = Array.from(newCategories).map(cat => CATEGORY_MAP[cat]);
@@ -370,6 +422,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     if (searchType !== 'all') {
       params.search_type = searchType;
     }
+    params.page = '1';
     setSearchParams(params, { replace: true });
   };
 
@@ -383,6 +436,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     setSelectedLaw(null);
     setSelectedLawData(null);
     setCardNewsData(null);
+    setCurrentPage(1); // 검색 시 첫 페이지로 리셋
     const params: Record<string, string> = {};
     const categoryStrings = Array.from(selectedCategories).map(cat => CATEGORY_MAP[cat]);
     if (categoryStrings.length > 0) {
@@ -394,6 +448,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     if (searchType !== 'all') {
       params.search_type = searchType;
     }
+    params.page = '1'; // 검색 시 첫 페이지
     setSearchParams(params, { replace: true });
   };
 
@@ -401,6 +456,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
   const handleSearchClear = () => {
     setSearchQuery("");
     setSearchType('all');
+    setCurrentPage(1); // 초기화 시 첫 페이지로 리셋
     setSelectedLaw(null);
     setSelectedLawData(null);
     setCardNewsData(null);
@@ -409,6 +465,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     if (categoryStrings.length > 0) {
       params.category = categoryStrings.join(',');
     }
+    params.page = '1';
     setSearchParams(params, { replace: true });
   };
 
@@ -506,8 +563,69 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     navigator.clipboard.writeText(text);
   };
 
-  // 백엔드에서 이미 검색 필터링이 완료되었으므로 클라이언트 사이드 필터링 제거
+  // 현재 페이지에 표시할 법령 목록
   const filteredLaws = laws;
+
+  // 필터링된 전체 개수 계산 (페이징 전)
+  const getFilteredTotal = () => {
+    if (allLaws.length === 0) return 0;
+    
+    let filtered = [...allLaws];
+    
+    // 카테고리 필터링
+    if (selectedCategories.size > 1) {
+      const categoryKeys = Array.from(selectedCategories).map(cat => CATEGORY_MAP[cat]);
+      filtered = filtered.filter(law => categoryKeys.includes(law.category));
+    }
+    
+    // 검색 타입별 필터링
+    if (searchQueryFromUrl && searchType !== 'all') {
+      const searchLower = searchQueryFromUrl.toLowerCase();
+      filtered = filtered.filter(law => {
+        switch (searchType) {
+          case 'title':
+            return law.title?.toLowerCase().includes(searchLower) ?? false;
+          case 'ministry':
+            return law.responsible_ministry?.toLowerCase().includes(searchLower) ?? false;
+          case 'content':
+            return (
+              (law.short_desc?.toLowerCase().includes(searchLower) ?? false) ||
+              (law.one_line_summary?.toLowerCase().includes(searchLower) ?? false)
+            );
+          default:
+            return true;
+        }
+      });
+    }
+    
+    return filtered.length;
+  };
+
+  const totalFiltered = getFilteredTotal();
+  const totalPages = Math.ceil(totalFiltered / ITEMS_PER_PAGE);
+
+  // 페이지 변경 핸들러
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPages) return;
+    
+    setCurrentPage(newPage);
+    const params: Record<string, string> = {};
+    const categoryStrings = Array.from(selectedCategories).map(cat => CATEGORY_MAP[cat]);
+    if (categoryStrings.length > 0) {
+      params.category = categoryStrings.join(',');
+    }
+    if (searchQuery.trim()) {
+      params.search = searchQuery.trim();
+    }
+    if (searchType !== 'all') {
+      params.search_type = searchType;
+    }
+    params.page = newPage.toString();
+    setSearchParams(params, { replace: true });
+    
+    // 페이지 상단으로 스크롤
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // 법령 상세보기 화면
   if (selectedLaw) {
@@ -565,7 +683,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                       </p>
                     )}
                   </div>
-                  <Badge>{getCategoryLabel(selectedLaw?.category || selectedLawData.category)}</Badge>
+                  <Badge>{getCategoryLabel(selectedLaw?.category)}</Badge>
                 </div>
               </CardHeader>
               <CardContent>
@@ -585,7 +703,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                   <div>
                     <span className="text-muted-foreground">분야:</span>
                     <p className="font-medium">
-                      {getCategoryLabel(selectedLaw?.category || selectedLawData.category)}
+                      {getCategoryLabel(selectedLaw?.category)}
                     </p>
                   </div>
                 </div>
@@ -645,7 +763,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                                 remarkPlugins={[remarkGfm]}
                                 className="markdown-body space-y-4"
                                 components={{
-                                  strong: ({ children, ...props }) => {
+                                  strong: ({ children, ...props }: { children?: React.ReactNode; [key: string]: unknown }) => {
                                     const termText = typeof children === 'string' ? children : 
                                       Array.isArray(children) ? children.filter(c => typeof c === 'string').join('') : '';
                                     
@@ -1000,8 +1118,13 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
           <div className="flex items-center gap-2 mb-4">
             <h2 className="text-xl font-semibold">현행법령</h2>
             <Badge variant="secondary">
-              {filteredLaws.length}건
+              {totalFiltered}건
             </Badge>
+            {totalPages > 1 && (
+              <span className="text-sm text-muted-foreground">
+                ({currentPage}/{totalPages} 페이지)
+              </span>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-3">
             {/* 카테고리 필터 */}
@@ -1139,6 +1262,73 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                 검색 초기화
               </Button>
             )}
+          </div>
+        )}
+
+        {/* 페이징 */}
+        {!loading && totalPages > 1 && (
+          <div className="mt-8">
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (currentPage > 1) handlePageChange(currentPage - 1);
+                    }}
+                    className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                  />
+                </PaginationItem>
+                
+                {/* 페이지 번호 표시 (최대 5개) */}
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum: number;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+                  
+                  return (
+                    <PaginationItem key={pageNum}>
+                      <PaginationLink
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handlePageChange(pageNum);
+                        }}
+                        isActive={currentPage === pageNum}
+                        className="cursor-pointer"
+                      >
+                        {pageNum}
+                      </PaginationLink>
+                    </PaginationItem>
+                  );
+                })}
+                
+                {totalPages > 5 && currentPage < totalPages - 2 && (
+                  <PaginationItem>
+                    <PaginationEllipsis />
+                  </PaginationItem>
+                )}
+                
+                <PaginationItem>
+                  <PaginationNext
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (currentPage < totalPages) handlePageChange(currentPage + 1);
+                    }}
+                    className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
           </div>
         )}
       </div>

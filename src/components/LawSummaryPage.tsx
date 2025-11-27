@@ -23,7 +23,6 @@ import {
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
-  PaginationEllipsis,
 } from "./ui/pagination";
 import { API_BASE_URL } from "../api/config";
 import { getLawList, getLawDetail, getLawCards, type LawListItem, type LawSummaryResponse, type LawCardsResponse } from "../api/law-easy";
@@ -270,26 +269,35 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
   const [hoveredTerm, setHoveredTerm] = useState<string | null>(null);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const termDictionaryRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+  const termListContainerRef = useRef<HTMLDivElement | null>(null);
   
-  const ITEMS_PER_PAGE = 30;
+  const ITEMS_PER_PAGE = 20;
   
   // markdown 파싱 결과
   const parsedMarkdown = selectedLawData?.markdown ? parseMarkdown(selectedLawData.markdown) : null;
 
   // 호버된 용어에 따라 쉬운말 사전 자동 스크롤
   useEffect(() => {
-    if (hoveredTerm) {
-      const termElement = termDictionaryRefs.current[hoveredTerm];
-      if (termElement) {
-        // 약간의 지연을 두어 DOM 업데이트 후 스크롤
-        setTimeout(() => {
-          termElement.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center',
-          });
-        }, 100);
-      }
-    }
+    if (!hoveredTerm) return;
+    const container = termListContainerRef.current;
+    const termElement = termDictionaryRefs.current[hoveredTerm];
+    if (!container || !termElement) return;
+
+    // DOM 업데이트 이후 스크롤 실행
+    const timer = window.setTimeout(() => {
+      const containerRect = container.getBoundingClientRect();
+      const elementRect = termElement.getBoundingClientRect();
+      const offset = elementRect.top - containerRect.top;
+      const scrollPosition =
+        container.scrollTop + offset - container.clientHeight / 2 + termElement.offsetHeight / 2;
+
+      container.scrollTo({
+        top: scrollPosition,
+        behavior: 'smooth',
+      });
+    }, 50);
+
+    return () => window.clearTimeout(timer);
   }, [hoveredTerm]);
 
   // URL 파라미터에서 초기 카테고리 설정
@@ -321,8 +329,8 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     }
 
     // 검색 타입 설정
-    if (searchTypeFromUrl && ['all', 'title', 'ministry', 'content'].includes(searchTypeFromUrl)) {
-      setSearchType(searchTypeFromUrl as 'all' | 'title' | 'ministry' | 'content');
+    if (searchTypeFromUrl && ['all', 'title', 'ministry', 'content', 'date'].includes(searchTypeFromUrl)) {
+      setSearchType(searchTypeFromUrl as 'all' | 'title' | 'ministry' | 'content' | 'date');
     }
 
     // 페이지 설정
@@ -586,30 +594,30 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
 
   // 법령 목록으로 돌아가기
   const handleBackToList = () => {
-    // 먼저 상태 초기화
     setSelectedLaw(null);
     setSelectedLawData(null);
     setCardNewsData(null);
 
-    // URL 업데이트 (category, search, search_type, page 유지, law_id 제거)
-    const params: Record<string, string> = {};
+    const nextParams = new URLSearchParams();
     const categoryStrings = Array.from(selectedCategories).map(cat => CATEGORY_MAP[cat]);
     if (categoryStrings.length > 0) {
-      params.category = categoryStrings.join(',');
+      nextParams.set('category', categoryStrings.join(','));
     }
-    if (searchQuery.trim()) {
-      params.search = searchQuery.trim();
+
+    const trimmedSearch = searchQuery.trim();
+    if (trimmedSearch) {
+      nextParams.set('search', trimmedSearch);
     }
+
     if (searchType !== 'all') {
-      params.search_type = searchType;
+      nextParams.set('search_type', searchType);
     }
+
     if (currentPage > 1) {
-      params.page = currentPage.toString();
+      nextParams.set('page', currentPage.toString());
     }
-    // replace: false로 변경하여 브라우저 히스토리에 추가
-    setSearchParams(params);
-    
-    // 페이지 상단으로 스크롤
+
+    setSearchParams(nextParams);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -1014,9 +1022,12 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <ScrollArea className="h-[600px]">
+                        <div
+                          ref={termListContainerRef}
+                          className="h-[600px] overflow-y-auto pr-2"
+                        >
                           {parsedMarkdown && parsedMarkdown.termDictionary.length > 0 ? (
-                            <div className="space-y-4 pr-4">
+                            <div className="space-y-4 pr-2">
                               {parsedMarkdown.termDictionary.map((term, idx) => (
                                 <div
                                   key={idx}
@@ -1043,7 +1054,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                               용어 사전이 없습니다
                             </div>
                           )}
-                        </ScrollArea>
+                        </div>
                       </CardContent>
                     </Card>
                   </div>
@@ -1308,6 +1319,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                   <SelectItem value="title">법령명</SelectItem>
                   <SelectItem value="ministry">소관 부처</SelectItem>
                   <SelectItem value="content">내용</SelectItem>
+                  <SelectItem value="date">통과일</SelectItem>
                 </SelectContent>
               </Select>
               
@@ -1464,7 +1476,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                 
                 {totalPages > 5 && currentPage < totalPages - 2 && (
                   <PaginationItem>
-                    <PaginationEllipsis />
+                    <span className="px-2 text-sm text-muted-foreground">...</span>
                   </PaginationItem>
                 )}
                 

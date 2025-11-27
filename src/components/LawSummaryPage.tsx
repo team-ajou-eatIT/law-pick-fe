@@ -395,9 +395,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
       const category = selectedCategories.size === 1 
         ? CATEGORY_MAP[Array.from(selectedCategories)[0]]
         : undefined;
-      
-      // 백엔드가 search_type을 지원하는 경우를 대비해 파라미터 구성
-      // 현재는 search만 전달하지만, 백엔드가 search_type을 지원하면 추가 가능
+
       // 페이징을 위해 충분한 데이터를 받아옴 (필터링 후에도 페이징 가능하도록)
       const activeSearchType = isValidSearchType(searchTypeFromUrl) ? searchTypeFromUrl : searchType;
       const dateStartParam = dateStartFromUrl ? dateStartFromUrl : undefined;
@@ -408,7 +406,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
       const response = await getLawList({
         category,
         page: 1,
-        size: 1000, // 충분한 데이터를 받아와서 클라이언트 사이드 필터링 및 페이징
+        size: 600, // 충분한 데이터를 받아와서 클라이언트 사이드 필터링 및 페이징
         search: searchParam,
         search_type: searchMode,
         date_start: activeSearchType === 'date' ? dateStartParam : undefined,
@@ -1383,7 +1381,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
             </div>
             
             {/* 검색 입력 */}
-            <div className="flex flex-col gap-2 flex-1 min-w-[300px] max-w-[600px] md:flex-row md:items-center">
+            <div className="flex items-center gap-2 flex-wrap flex-1 min-w-[300px] max-w-[700px]">
               {/* 검색 타입 선택 */}
               <Select
                 value={searchType}
@@ -1403,32 +1401,28 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
               </Select>
 
               {searchType === 'date' ? (
-                <div className="flex flex-col gap-2 flex-1 md:flex-row">
-                  <div className="relative flex-1">
-                    <Input
-                      type="date"
-                      value={dateStart}
-                      onChange={(e) => setDateStart(e.target.value)}
-                      onKeyDown={handleSearchKeyDown}
-                      className="h-9"
-                      disabled={loading}
-                      aria-label="통과일 시작"
-                    />
-                  </div>
-                  <div className="relative flex-1">
-                    <Input
-                      type="date"
-                      value={dateEnd}
-                      onChange={(e) => setDateEnd(e.target.value)}
-                      onKeyDown={handleSearchKeyDown}
-                      className="h-9"
-                      disabled={loading}
-                      aria-label="통과일 종료"
-                    />
-                  </div>
+                <div className="flex items-center gap-2 flex-1 min-w-[250px]">
+                  <Input
+                    type="date"
+                    value={dateStart}
+                    onChange={(e) => setDateStart(e.target.value)}
+                    onKeyDown={handleSearchKeyDown}
+                    className="h-9"
+                    disabled={loading}
+                    aria-label="통과일 시작"
+                  />
+                  <Input
+                    type="date"
+                    value={dateEnd}
+                    onChange={(e) => setDateEnd(e.target.value)}
+                    onKeyDown={handleSearchKeyDown}
+                    className="h-9"
+                    disabled={loading}
+                    aria-label="통과일 종료"
+                  />
                 </div>
               ) : (
-                <div className="relative flex-1">
+                <div className="relative flex-1 min-w-[250px]">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     type="text"

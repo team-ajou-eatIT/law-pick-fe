@@ -125,6 +125,20 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
   const [error, setError] = useState<ErrorState | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [cacheNotice, setCacheNotice] = useState<string | null>(null);
+  const fetchLawIdIfNeeded = useCallback(async (billNo: string) => {
+    try {
+      const response = await getBillReportDetail(billNo);
+      if (response.data?.law_id) {
+        setSelectedBill(prev =>
+          prev && prev.bill_no === billNo && prev.law_id !== response.data!.law_id
+            ? { ...prev, law_id: response.data!.law_id }
+            : prev
+        );
+      }
+    } catch (err) {
+      console.warn('Failed to load law_id for bill:', billNo, err);
+    }
+  }, []);
 
   const ITEMS_PER_PAGE = 10;
 
@@ -395,6 +409,11 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, youthBills, billReportResults, isSearchMode, selectedBill]);
+  useEffect(() => {
+    if (selectedBill && !selectedBill.law_id) {
+      fetchLawIdIfNeeded(selectedBill.bill_no);
+    }
+  }, [selectedBill, fetchLawIdIfNeeded]);
 
   // URL에서 검색어가 있을 때만 초기 검색 실행
   useEffect(() => {

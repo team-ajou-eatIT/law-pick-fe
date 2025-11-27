@@ -8,6 +8,7 @@
 export interface BillReportListItem {
   id: number;
   bill_no: string;
+  law_id: string | null;
   bill_summary: string | null;
   major_changes: string | null;
   proposal_reason: string | null;

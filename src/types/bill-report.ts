@@ -33,3 +33,15 @@ export interface BillReportSearchResponse {
   reports: BillReportListItem[];
 }
 
+/**
+ * 안건 분석 리포트 전체 조회 응답 (페이지네이션)
+ */
+export interface BillReportAllResponse {
+  success: boolean;
+  page: number;
+  page_size: number;
+  total_count: number;
+  total_pages: number;
+  reports: BillReportListItem[];
+}
+

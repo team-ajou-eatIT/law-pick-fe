@@ -8,8 +8,16 @@ import { Input } from "./ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { ScrollArea } from "./ui/scroll-area";
 import { Alert, AlertDescription } from "./ui/alert";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "./ui/pagination";
 import { getYouthProposals, getYouthProposalDetail, transformYouthProposalForUI } from "../api/youth-proposal";
-import { searchBillReports, getBillReportDetail } from "../api/bill-report";
+import { getAllBillReports, searchBillReports, getBillReportDetail } from "../api/bill-report";
 import type { YouthProposalListItem, YouthProposalDetailUI, YouthProposalCategory } from "../types/youth-proposal";
 import type { BillReportListItem } from "../types/bill-report";
 import { CATEGORY_NAMES } from "../types/youth-proposal";
@@ -97,6 +105,7 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
   // URL에서 초기값 가져오기
   const categoryFromUrl = searchParams.get("category");
   const searchQueryFromUrl = searchParams.get("search") || "";
+  const pageFromUrl = parseInt(searchParams.get("page") || "1", 10);
 
   // /analysis/all 경로인지 확인
   const isAllPath = location.pathname === '/analysis/all' || location.pathname === '/analysis';
@@ -104,6 +113,9 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
   // 선택된 카테고리를 Set으로 관리 (토글 방식)
   const [selectedCategories, setSelectedCategories] = useState<Set<YouthProposalCategory>>(new Set());
   const [searchQuery, setSearchQuery] = useState<string>(searchQueryFromUrl);
+  const [currentPage, setCurrentPage] = useState<number>(pageFromUrl);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [totalCount, setTotalCount] = useState<number>(0);
   const [selectedBill, setSelectedBill] = useState<YouthProposalDetailUI | null>(null);
   const [youthBills, setYouthBills] = useState<YouthProposalListItem[]>([]);
   const [billReportResults, setBillReportResults] = useState<BillReportListItem[]>([]);
@@ -113,6 +125,8 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
   const [error, setError] = useState<ErrorState | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [cacheNotice, setCacheNotice] = useState<string | null>(null);
+
+  const ITEMS_PER_PAGE = 10;
 
   const persistListCache = useCallback((proposals: YouthProposalListItem[]) => {
     if (typeof window === 'undefined') return;
@@ -222,6 +236,58 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
     }
   }, []);
 
+  // /analysis/all 경로를 위한 전체 리포트 조회 (페이지네이션)
+  const loadAllBillReports = useCallback(async (page: number = 1) => {
+    setLoading(true);
+    setError(null);
+    setIsSearchMode(false);
+
+    try {
+      // 선택된 카테고리가 하나면 해당 카테고리만 조회, 아니면 전체 조회
+      const category = selectedCategories.size === 1 ? Array.from(selectedCategories)[0] : undefined;
+
+      const response = await getAllBillReports(page, ITEMS_PER_PAGE, category);
+
+      if (response.error) {
+        setError({
+          kind: response.error === 'Failed to fetch' ? 'network' : 'general',
+          message:
+            response.error === 'Failed to fetch'
+              ? '데이터 서버에 연결하지 못했습니다. 잠시 후 다시 시도해주세요.'
+              : response.error,
+          detail: response.error === 'Failed to fetch' ? undefined : response.error,
+        });
+        return;
+      }
+
+      if (response.data) {
+        // bill_report 데이터를 YouthProposalListItem 형식으로 변환
+        const mappedBills: YouthProposalListItem[] = response.data.reports.map(report => ({
+          bill_no: report.bill_no,
+          bill_nm: report.bill_nm || '',
+          bill_summary: report.bill_summary || null,
+          rgs_rsln_dt: report.rgs_rsln_dt || null,
+          jrcmit_nm: report.jrcmit_nm || null,
+          is_youth_proposal: category || 1, // 선택된 카테고리 또는 기본값
+        }));
+
+        setYouthBills(mappedBills);
+        setTotalPages(response.data.total_pages);
+        setTotalCount(response.data.total_count);
+        setCacheNotice(null);
+      }
+    } catch (err) {
+      console.error('Failed to load all bill reports:', err);
+      setError({
+        kind: 'general',
+        message: '안건 분석 리포트 목록을 불러오는데 실패했습니다.',
+        detail: err instanceof Error ? err.message : undefined,
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [ITEMS_PER_PAGE, selectedCategories]);
+
   const loadYouthBills = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -251,6 +317,8 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
       if (response.data) {
         const filtered = filterBySelection(response.data.proposals);
         setYouthBills(filtered);
+        setTotalCount(filtered.length);
+        setTotalPages(1); // 청년 안건은 페이지네이션 없음
         setCacheNotice(null);
 
         if (selectedCategories.size === 0) {
@@ -270,16 +338,10 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
     } finally {
       setLoading(false);
     }
-  }, [attemptCacheFallback, filterBySelection, persistListCache, selectedCategories]);
+  }, [attemptCacheFallback, filterBySelection, persistListCache, selectedCategories, ITEMS_PER_PAGE]);
 
   // URL 파라미터에서 초기 카테고리 및 검색어 설정
   useEffect(() => {
-    if (isAllPath && !categoryFromUrl) {
-      // /analysis/all 경로이고 category 파라미터가 없으면 빈 Set으로 시작
-      setSelectedCategories(new Set());
-      return;
-    }
-
     if (categoryFromUrl) {
       // URL에 category 파라미터가 있으면 파싱
       const categories = categoryFromUrl.split(',').map(cat => {
@@ -297,6 +359,7 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
         setSelectedCategories(new Set());
       }
     } else {
+      // category 파라미터가 없으면 빈 Set (전체 보기)
       setSelectedCategories(new Set());
     }
 
@@ -304,7 +367,12 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
     if (searchQueryFromUrl) {
       setSearchQuery(searchQueryFromUrl);
     }
-  }, [categoryFromUrl, searchQueryFromUrl, isAllPath]);
+
+    // 페이지 설정
+    if (pageFromUrl >= 1) {
+      setCurrentPage(pageFromUrl);
+    }
+  }, [categoryFromUrl, searchQueryFromUrl, pageFromUrl]);
 
   // URL에 bill_no가 있으면 해당 법안 자동 로드
   useEffect(() => {
@@ -328,15 +396,19 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, youthBills, billReportResults, isSearchMode, selectedBill]);
 
-  // URL에서 검색어가 있을 때만 초기 검색 실행 (자동 검색 제거)
+  // URL에서 검색어가 있을 때만 초기 검색 실행
   useEffect(() => {
     if (searchQueryFromUrl && searchQueryFromUrl.trim()) {
       searchBillReportsData(searchQueryFromUrl.trim());
+    } else if (isAllPath) {
+      // /analysis/all 경로에서는 페이지네이션된 전체 리포트 로드
+      loadAllBillReports(currentPage);
     } else {
+      // 청년 안건 목록 로드
       loadYouthBills();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQueryFromUrl]);
+  }, [searchQueryFromUrl, isAllPath, currentPage, selectedCategories]);
 
   // 청년 안건 상세 정보 로드
   const loadBillDetail = async (billNo: string) => {
@@ -373,8 +445,10 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
   // 카테고리 토글 핸들러 (단일 선택만 가능)
   const handleCategoryToggle = (category: YouthProposalCategory) => {
     setSelectedBill(null);
+    setCurrentPage(1); // 카테고리 변경 시 첫 페이지로 리셋
+
     const newCategories = new Set<YouthProposalCategory>();
-    
+
     if (selectedCategories.has(category)) {
       // 이미 선택된 경우 제거 (전체 보기)
       // newCategories는 빈 Set
@@ -382,7 +456,7 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
       // 선택되지 않은 경우 해당 카테고리만 추가 (기존 선택 무시)
       newCategories.add(category);
     }
-    
+
     setSelectedCategories(newCategories);
 
     // URL 업데이트 (검색어 유지)
@@ -394,6 +468,7 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
     if (searchQuery.trim()) {
       params.search = searchQuery.trim();
     }
+    params.page = '1'; // 첫 페이지로 리셋
     setSearchParams(params, { replace: true });
   };
 
@@ -427,14 +502,40 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
     setSelectedBill(null);
     setBillReportResults([]);
     setIsSearchMode(false);
+    setCurrentPage(1);
     const params: Record<string, string> = {};
     const categoryStrings = Array.from(selectedCategories).map(cat => CATEGORY_TO_STRING[cat]);
     if (categoryStrings.length > 0) {
       params.category = categoryStrings.join(',');
     }
+    params.page = '1';
     setSearchParams(params, { replace: true });
-    // 청년 안건 목록 다시 로드
-    loadYouthBills();
+    // /analysis/all 경로에서는 페이지네이션된 리포트 로드, 아니면 청년 안건 로드
+    if (isAllPath) {
+      loadAllBillReports(1);
+    } else {
+      loadYouthBills();
+    }
+  };
+
+  // 페이지 변경 핸들러
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPages) return;
+
+    setCurrentPage(newPage);
+    const params: Record<string, string> = {};
+    const categoryStrings = Array.from(selectedCategories).map(cat => CATEGORY_TO_STRING[cat]);
+    if (categoryStrings.length > 0) {
+      params.category = categoryStrings.join(',');
+    }
+    if (searchQuery.trim()) {
+      params.search = searchQuery.trim();
+    }
+    params.page = newPage.toString();
+    setSearchParams(params, { replace: true });
+
+    // 페이지 상단으로 스크롤
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Enter 키 핸들러
@@ -950,11 +1051,16 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-4">
             <h2 className="text-xl font-semibold">
-              {isSearchMode ? '안건 분석 리포트 검색 결과' : '청년 관련 법안'}
+              {isSearchMode ? '안건 분석 리포트 검색 결과' : isAllPath ? '모든 안건 분석 리포트' : '청년 관련 법안'}
             </h2>
             <Badge variant="secondary">
-              {isSearchMode ? searchTotalCount : filteredBills.length}건
+              {isSearchMode ? searchTotalCount : totalCount}건
             </Badge>
+            {isAllPath && totalPages > 1 && (
+              <span className="text-sm text-muted-foreground">
+                ({currentPage}/{totalPages} 페이지)
+              </span>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-3">
             {/* 카테고리 필터 (검색 모드가 아닐 때만 표시) */}
@@ -1155,12 +1261,79 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
             </div>
             <h3 className="text-lg font-semibold mb-2">검색 결과가 없습니다</h3>
             <p className="text-muted-foreground mb-4">다른 검색어로 시도해보세요.</p>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={handleSearchClear}
             >
               검색 초기화
             </Button>
+          </div>
+        )}
+
+        {/* 페이지네이션 - /analysis/all 경로에서만 표시 */}
+        {!loading && isAllPath && !isSearchMode && totalPages > 1 && (
+          <div className="mt-8">
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (currentPage > 1) handlePageChange(currentPage - 1);
+                    }}
+                    className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                  />
+                </PaginationItem>
+
+                {/* 페이지 번호 표시 (최대 5개) */}
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum: number;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+
+                  return (
+                    <PaginationItem key={pageNum}>
+                      <PaginationLink
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handlePageChange(pageNum);
+                        }}
+                        isActive={currentPage === pageNum}
+                        className="cursor-pointer"
+                      >
+                        {pageNum}
+                      </PaginationLink>
+                    </PaginationItem>
+                  );
+                })}
+
+                {totalPages > 5 && currentPage < totalPages - 2 && (
+                  <PaginationItem>
+                    <span className="px-2 text-sm text-muted-foreground">...</span>
+                  </PaginationItem>
+                )}
+
+                <PaginationItem>
+                  <PaginationNext
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (currentPage < totalPages) handlePageChange(currentPage + 1);
+                    }}
+                    className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
           </div>
         )}
       </div>

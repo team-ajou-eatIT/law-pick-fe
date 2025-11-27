@@ -59,6 +59,7 @@ export const API_ENDPOINTS = {
   assistantQuery: '/api/v1/law/chatbot/query',
 
   // 안건 분석 리포트
+  billReportAll: '/api/v1/bill-report/all',
   billReportSearch: '/api/v1/bill-report/search',
   billReportDetail: (billNo: string) => `/api/v1/bill-report/${billNo}`,
 

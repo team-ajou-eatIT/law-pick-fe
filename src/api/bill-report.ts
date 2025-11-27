@@ -6,7 +6,28 @@ import { API_ENDPOINTS } from './config';
 import type {
   BillReportSearchResponse,
   BillReportListItem,
+  BillReportAllResponse,
 } from '../types/bill-report';
+
+/**
+ * 안건 분석 리포트 전체 조회 (페이지네이션)
+ */
+export async function getAllBillReports(
+  page: number = 1,
+  pageSize: number = 10,
+  category?: number
+) {
+  const params: Record<string, number> = {
+    page,
+    page_size: pageSize,
+  };
+
+  if (category !== undefined) {
+    params.category = category;
+  }
+
+  return get<BillReportAllResponse>(API_ENDPOINTS.billReportAll, params);
+}
 
 /**
  * 안건 분석 리포트 검색

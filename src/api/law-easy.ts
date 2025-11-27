@@ -65,7 +65,9 @@ export async function getLawList(params?: {
   page?: number;
   size?: number;
   search?: string;
-  search_type?: string; // 백엔드가 지원하면 사용
+  search_type?: string;
+  date_start?: string;
+  date_end?: string;
 }) {
   return get<LawListResponse>(API_ENDPOINTS.laws, params);
 }

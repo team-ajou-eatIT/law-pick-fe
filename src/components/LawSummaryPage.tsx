@@ -239,6 +239,10 @@ const getCategoryLabel = (value?: string | null) => {
 };
 
 const categories = ["부동산", "금융", "취업", "교육"];
+const SEARCH_TYPE_VALUES = ['all', 'title', 'ministry', 'content', 'date'] as const;
+type SearchType = (typeof SEARCH_TYPE_VALUES)[number];
+const isValidSearchType = (value: string | null): value is SearchType =>
+  value !== null && SEARCH_TYPE_VALUES.includes(value as SearchType);
 
 export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -248,6 +252,8 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
   const categoryFromUrl = searchParams.get("category");
   const searchQueryFromUrl = searchParams.get("search") || "";
   const searchTypeFromUrl = searchParams.get("search_type") || "all";
+  const dateStartFromUrl = searchParams.get("date_start") || "";
+  const dateEndFromUrl = searchParams.get("date_end") || "";
   const pageFromUrl = parseInt(searchParams.get("page") || "1", 10);
 
   // /summary/all 경로인지 확인
@@ -256,7 +262,11 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
   // 선택된 카테고리를 Set으로 관리 (토글 방식)
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState<string>(searchQueryFromUrl);
-  const [searchType, setSearchType] = useState<'all' | 'title' | 'ministry' | 'content' | 'date'>(searchTypeFromUrl as 'all' | 'title' | 'ministry' | 'content' | 'date' || 'all');
+  const [searchType, setSearchType] = useState<SearchType>(
+    isValidSearchType(searchTypeFromUrl) ? searchTypeFromUrl : 'all',
+  );
+  const [dateStart, setDateStart] = useState<string>(dateStartFromUrl);
+  const [dateEnd, setDateEnd] = useState<string>(dateEndFromUrl);
   const [selectedLaw, setSelectedLaw] = useState<LawListItem | null>(null);
   const [selectedLawData, setSelectedLawData] = useState<LawSummaryResponse | null>(null);
   const [cardNewsData, setCardNewsData] = useState<LawCardsResponse | null>(null);
@@ -329,15 +339,26 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     }
 
     // 검색 타입 설정
-    if (searchTypeFromUrl && ['all', 'title', 'ministry', 'content', 'date'].includes(searchTypeFromUrl)) {
-      setSearchType(searchTypeFromUrl as 'all' | 'title' | 'ministry' | 'content' | 'date');
+    if (isValidSearchType(searchTypeFromUrl)) {
+      setSearchType(searchTypeFromUrl);
     }
 
     // 페이지 설정
     if (pageFromUrl >= 1) {
       setCurrentPage(pageFromUrl);
     }
-  }, [categoryFromUrl, searchQueryFromUrl, searchTypeFromUrl, pageFromUrl, isAllPath]);
+    // 날짜 범위 설정
+    if (dateStartFromUrl) {
+      setDateStart(dateStartFromUrl);
+    } else {
+      setDateStart("");
+    }
+    if (dateEndFromUrl) {
+      setDateEnd(dateEndFromUrl);
+    } else {
+      setDateEnd("");
+    }
+  }, [categoryFromUrl, searchQueryFromUrl, searchTypeFromUrl, dateStartFromUrl, dateEndFromUrl, pageFromUrl, isAllPath]);
 
   // URL에 law_id가 있으면 해당 법령 자동 로드
   useEffect(() => {
@@ -358,7 +379,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
   // 법령 목록 가져오기
   useEffect(() => {
     loadLaws();
-  }, [selectedCategories, searchQueryFromUrl, searchType]);
+  }, [selectedCategories, searchQueryFromUrl, searchTypeFromUrl, dateStartFromUrl, dateEndFromUrl]);
 
   // 필터링 및 페이징 적용
   useEffect(() => {
@@ -375,18 +396,23 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
         ? CATEGORY_MAP[Array.from(selectedCategories)[0]]
         : undefined;
       
-      // 검색어가 있으면 백엔드로 전달, 없으면 undefined
-      const search = searchQueryFromUrl.trim() || undefined;
-      
       // 백엔드가 search_type을 지원하는 경우를 대비해 파라미터 구성
       // 현재는 search만 전달하지만, 백엔드가 search_type을 지원하면 추가 가능
       // 페이징을 위해 충분한 데이터를 받아옴 (필터링 후에도 페이징 가능하도록)
+      const activeSearchType = isValidSearchType(searchTypeFromUrl) ? searchTypeFromUrl : searchType;
+      const dateStartParam = dateStartFromUrl ? dateStartFromUrl : undefined;
+      const dateEndParam = dateEndFromUrl ? dateEndFromUrl : undefined;
+      const searchParam = activeSearchType !== 'date' ? (searchQueryFromUrl.trim() || undefined) : undefined;
+      const searchMode = activeSearchType !== 'all' ? activeSearchType : undefined;
+
       const response = await getLawList({
         category,
         page: 1,
         size: 1000, // 충분한 데이터를 받아와서 클라이언트 사이드 필터링 및 페이징
-        search,
-        // 백엔드가 지원하면 주석 해제: search_type: searchType !== 'all' ? searchType : undefined
+        search: searchParam,
+        search_type: searchMode,
+        date_start: activeSearchType === 'date' ? dateStartParam : undefined,
+        date_end: activeSearchType === 'date' ? dateEndParam : undefined,
       });
 
       if (response.data) {
@@ -501,11 +527,21 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
       const categoryStrings = Array.from(newCategories).map(cat => CATEGORY_MAP[cat]);
       params.category = categoryStrings.join(',');
     }
-    if (searchQuery.trim()) {
-      params.search = searchQuery.trim();
-    }
-    if (searchType !== 'all') {
-      params.search_type = searchType;
+    if (searchType === 'date') {
+      if (dateStart) {
+        params.date_start = dateStart;
+      }
+      if (dateEnd) {
+        params.date_end = dateEnd;
+      }
+      params.search_type = 'date';
+    } else {
+      if (searchQuery.trim()) {
+        params.search = searchQuery.trim();
+      }
+      if (searchType !== 'all') {
+        params.search_type = searchType;
+      }
     }
     params.page = '1';
     setSearchParams(params, { replace: true });
@@ -527,11 +563,21 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     if (categoryStrings.length > 0) {
       params.category = categoryStrings.join(',');
     }
-    if (searchQuery.trim()) {
-      params.search = searchQuery.trim();
-    }
-    if (searchType !== 'all') {
-      params.search_type = searchType;
+    if (searchType === 'date') {
+      if (dateStart) {
+        params.date_start = dateStart;
+      }
+      if (dateEnd) {
+        params.date_end = dateEnd;
+      }
+      params.search_type = 'date';
+    } else {
+      if (searchQuery.trim()) {
+        params.search = searchQuery.trim();
+      }
+      if (searchType !== 'all') {
+        params.search_type = searchType;
+      }
     }
     params.page = '1'; // 검색 시 첫 페이지
     setSearchParams(params, { replace: true });
@@ -541,6 +587,8 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
   const handleSearchClear = () => {
     setSearchQuery("");
     setSearchType('all');
+    setDateStart("");
+    setDateEnd("");
     setCurrentPage(1); // 초기화 시 첫 페이지로 리셋
     setSelectedLaw(null);
     setSelectedLawData(null);
@@ -573,11 +621,21 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     if (categoryStrings.length > 0) {
       params.category = categoryStrings.join(',');
     }
-    if (searchQuery.trim()) {
-      params.search = searchQuery.trim();
-    }
-    if (searchType !== 'all') {
-      params.search_type = searchType;
+    if (searchType === 'date') {
+      if (dateStart) {
+        params.date_start = dateStart;
+      }
+      if (dateEnd) {
+        params.date_end = dateEnd;
+      }
+      params.search_type = 'date';
+    } else {
+      if (searchQuery.trim()) {
+        params.search = searchQuery.trim();
+      }
+      if (searchType !== 'all') {
+        params.search_type = searchType;
+      }
     }
     setSearchParams(params);
 
@@ -604,13 +662,22 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
       nextParams.set('category', categoryStrings.join(','));
     }
 
-    const trimmedSearch = searchQuery.trim();
-    if (trimmedSearch) {
-      nextParams.set('search', trimmedSearch);
-    }
-
-    if (searchType !== 'all') {
-      nextParams.set('search_type', searchType);
+    if (searchType === 'date') {
+      if (dateStart) {
+        nextParams.set('date_start', dateStart);
+      }
+      if (dateEnd) {
+        nextParams.set('date_end', dateEnd);
+      }
+      nextParams.set('search_type', 'date');
+    } else {
+      const trimmedSearch = searchQuery.trim();
+      if (trimmedSearch) {
+        nextParams.set('search', trimmedSearch);
+      }
+      if (searchType !== 'all') {
+        nextParams.set('search_type', searchType);
+      }
     }
 
     if (currentPage > 1) {
@@ -668,8 +735,10 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
       .replace(/([^\n])([①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳])/g, '$1\n\n$2')
       // 숫자 항 번호 (1., 2., 3. 등) - 앞에 줄바꿈 추가
       .replace(/([^\n])(\d+\.\s)/g, '$1\n\n$2')
-      // 호 번호 (가., 나., 다. 등) - 앞에 줄바꿈 추가
-      .replace(/([^\n])([가나다라마바사아자차카타파하]\.\s)/g, '$1\n\n$2')
+      // 호 번호 (가., 나., 다. 등) - 줄 중간이 아닌 경우에만 줄바꿈 추가
+      .replace(/(^|\n)([가나다라마바사아자차카타파하]\.\s)/g, (_match, prefix: string, item: string) => {
+        return prefix ? `${prefix}\n${item}` : item;
+      })
       // 괄호 항목 (1), 2), 3) 등) - 앞에 줄바꿈 추가
       .replace(/([^\n])(\d+\)\s)/g, '$1\n\n$2')
       // 연속된 공백 정리 (줄바꿈은 유지)
@@ -738,11 +807,21 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     if (categoryStrings.length > 0) {
       params.category = categoryStrings.join(',');
     }
-    if (searchQuery.trim()) {
-      params.search = searchQuery.trim();
-    }
-    if (searchType !== 'all') {
-      params.search_type = searchType;
+    if (searchType === 'date') {
+      if (dateStart) {
+        params.date_start = dateStart;
+      }
+      if (dateEnd) {
+        params.date_end = dateEnd;
+      }
+      params.search_type = 'date';
+    } else {
+      if (searchQuery.trim()) {
+        params.search = searchQuery.trim();
+      }
+      if (searchType !== 'all') {
+        params.search_type = searchType;
+      }
     }
     params.page = newPage.toString();
     setSearchParams(params, { replace: true });
@@ -1304,11 +1383,11 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
             </div>
             
             {/* 검색 입력 */}
-            <div className="flex items-center gap-2 flex-1 min-w-[300px] max-w-[500px]">
+            <div className="flex flex-col gap-2 flex-1 min-w-[300px] max-w-[600px] md:flex-row md:items-center">
               {/* 검색 타입 선택 */}
               <Select
                 value={searchType}
-                onValueChange={(value) => setSearchType(value as 'all' | 'title' | 'ministry' | 'content' | 'date')}
+                onValueChange={(value) => setSearchType(value as SearchType)}
                 disabled={loading}
               >
                 <SelectTrigger className="w-[140px] h-9">
@@ -1322,25 +1401,51 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                   <SelectItem value="date">통과일</SelectItem>
                 </SelectContent>
               </Select>
-              
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type={searchType === 'date' ? 'date' : 'text'}
-                  placeholder={
-                    searchType === 'all' ? '법령명, 내용, 소관 부처 검색...' :
-                    searchType === 'title' ? '법령명을 입력하세요...' :
-                    searchType === 'ministry' ? '소관 부처를 입력하세요...' :
-                    searchType === 'date' ? '통과일을 선택하세요...' :
-                    '내용을 입력하세요...'
-                  }
-                  value={searchQuery}
-                  onChange={(e) => handleSearchChange(e.target.value)}
-                  onKeyDown={handleSearchKeyDown}
-                  className="pl-9 pr-3 h-9"
-                  disabled={loading}
-                />
-              </div>
+
+              {searchType === 'date' ? (
+                <div className="flex flex-col gap-2 flex-1 md:flex-row">
+                  <div className="relative flex-1">
+                    <Input
+                      type="date"
+                      value={dateStart}
+                      onChange={(e) => setDateStart(e.target.value)}
+                      onKeyDown={handleSearchKeyDown}
+                      className="h-9"
+                      disabled={loading}
+                      aria-label="통과일 시작"
+                    />
+                  </div>
+                  <div className="relative flex-1">
+                    <Input
+                      type="date"
+                      value={dateEnd}
+                      onChange={(e) => setDateEnd(e.target.value)}
+                      onKeyDown={handleSearchKeyDown}
+                      className="h-9"
+                      disabled={loading}
+                      aria-label="통과일 종료"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder={
+                      searchType === 'all' ? '법령명, 내용, 소관 부처 검색...' :
+                      searchType === 'title' ? '법령명을 입력하세요...' :
+                      searchType === 'ministry' ? '소관 부처를 입력하세요...' :
+                      '내용을 입력하세요...'
+                    }
+                    value={searchQuery}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    onKeyDown={handleSearchKeyDown}
+                    className="pl-9 pr-3 h-9"
+                    disabled={loading}
+                  />
+                </div>
+              )}
               <Button
                 size="sm"
                 onClick={handleSearchSubmit}

@@ -370,9 +370,10 @@ function MainPage() {
             {/* Category Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-20 max-w-6xl mx-auto">
               {/* 부동산 정책 Pick */}
-              <a
-                className="relative block"
-                href="https://law-pick.me/summary/all?category=real_estate"
+              <button
+                type="button"
+                className="relative block text-left"
+                onClick={() => navigate('/summary/all?category=real_estate&page=1')}
               >
                 <div className="backdrop-blur-[5.1px] bg-white/80 rounded-[15px] border border-[#e6e6e6] p-4 h-[149px] flex flex-col justify-between hover:shadow-lg transition-all cursor-pointer">
                   <div>
@@ -422,12 +423,13 @@ function MainPage() {
                     </div>
                   </div>
                 </div>
-              </a>
+              </button>
 
               {/* 금융 Pick */}
-              <a
-                className="relative block"
-                href="https://law-pick.me/summary/all?category=finance"
+              <button
+                type="button"
+                className="relative block text-left"
+                onClick={() => navigate('/summary/all?category=finance&page=1')}
               >
                 <div className="backdrop-blur-[5.1px] bg-white/80 rounded-[15px] border border-[#e6e6e6] p-4 h-[149px] flex flex-col justify-between hover:shadow-lg transition-all cursor-pointer">
                   <div>
@@ -478,12 +480,13 @@ function MainPage() {
                     </div>
                   </div>
                 </div>
-              </a>
+              </button>
 
               {/* 취업 Pick */}
-              <a
-                className="relative block"
-                href="https://law-pick.me/summary/all?category=employment"
+              <button
+                type="button"
+                className="relative block text-left"
+                onClick={() => navigate('/summary/all?category=employment&page=1')}
               >
                 <div className="backdrop-blur-[5.1px] bg-white/80 rounded-[15px] border border-[#e6e6e6] p-4 h-[149px] flex flex-col justify-between hover:shadow-lg transition-all cursor-pointer">
                   <div>
@@ -534,12 +537,13 @@ function MainPage() {
                     </div>
                   </div>
                 </div>
-              </a>
+              </button>
 
               {/* 교육 Pick */}
-              <a
-                className="relative block"
-                href="https://law-pick.me/summary/all?category=education"
+              <button
+                type="button"
+                className="relative block text-left"
+                onClick={() => navigate('/summary/all?category=education&page=1')}
               >
                 <div className="backdrop-blur-[5.1px] bg-white/80 rounded-[15px] border border-[#e6e6e6] p-4 h-[149px] flex flex-col justify-between hover:shadow-lg transition-all cursor-pointer">
                   <div>
@@ -590,7 +594,7 @@ function MainPage() {
                     </div>
                   </div>
                 </div>
-              </a>
+              </button>
             </div>
 
             {/* Search Bar (disabled)

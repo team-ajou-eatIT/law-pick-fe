@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams, useLocation } from "react-router-dom";
-import { ArrowLeft, FileText, Search, Sparkles, BookOpen, MessageCircle, Copy, ExternalLink, Calendar, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, FileText, Search, Sparkles, BookOpen, MessageCircle, Copy, ExternalLink, Calendar, Loader2, ChevronLeft, ChevronRight, Maximize2, X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Button } from "./ui/button";
@@ -16,6 +16,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+} from "./ui/dialog";
 import {
   Pagination,
   PaginationContent,
@@ -269,6 +279,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
   const [loadingCards, setLoadingCards] = useState(false);
   const [hoveredTerm, setHoveredTerm] = useState<string | null>(null);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   
   const ITEMS_PER_PAGE = 30;
   
@@ -619,8 +630,53 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     }
   };
 
+  // 키보드 이벤트 처리 (전체 화면 모드에서)
+  useEffect(() => {
+    if (!isFullscreen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsFullscreen(false);
+      } else if (e.key === 'ArrowLeft' && cardNewsData && currentCardIndex > 0) {
+        setCurrentCardIndex(currentCardIndex - 1);
+      } else if (e.key === 'ArrowRight' && cardNewsData && currentCardIndex < cardNewsData.images.length - 1) {
+        setCurrentCardIndex(currentCardIndex + 1);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFullscreen, currentCardIndex, cardNewsData]);
+
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
+  };
+
+  // 법령 원문을 보기 좋게 포맷팅하는 함수
+  const formatOriginalContent = (content: string): string => {
+    if (!content) return content;
+    
+    // 조항 번호나 항 번호를 기준으로 줄바꿈 추가
+    let formatted = content
+      // 조항 번호 (제1조, 제2조 등)
+      .replace(/(제\d+조)/g, '\n\n$1')
+      // 항 번호 (①, ②, ③ 등)
+      .replace(/([①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳])/g, '\n\n$1')
+      // 숫자 항 번호 (1., 2., 3. 등)
+      .replace(/(\d+\.\s)/g, '\n\n$1')
+      // 호 번호 (가., 나., 다. 등)
+      .replace(/([가나다라마바사아자차카타파하]\.\s)/g, '\n\n$1')
+      // 괄호 항목 (1), 2), 3) 등)
+      .replace(/(\d+\)\s)/g, '\n\n$1')
+      // 문장 끝에 마침표가 있고 다음 문장이 시작될 때 줄바꿈
+      .replace(/\.\s+([가-힣])/g, '.\n$1')
+      // 연속된 공백 정리
+      .replace(/\s+/g, ' ')
+      // 연속된 줄바꿈 정리 (최대 2개)
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+    
+    return formatted;
   };
 
   // 현재 페이지에 표시할 법령 목록
@@ -825,42 +881,66 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                           <div className="border-l-4 border-green-500 pl-4 py-2">
                             <h4 className="font-semibold text-green-800 mb-2">쉬운 말 설명 및 요약</h4>
                             <div className="text-sm leading-relaxed text-muted-foreground">
-                              <ReactMarkdown
-                                remarkPlugins={[remarkGfm]}
-                                className="markdown-body space-y-4"
-                                components={{
-                                  strong: ({ children, ...props }: { children?: React.ReactNode; [key: string]: unknown }) => {
-                                    const termText = typeof children === 'string' ? children : 
-                                      Array.isArray(children) ? children.filter(c => typeof c === 'string').join('') : '';
-                                    
-                                    if (parsedMarkdown.termDictionary.length > 0 && termText) {
-                                      const termDef = parsedMarkdown.termDictionary.find(t => t.term === termText);
-                                      
-                                      if (termDef) {
-                                        return (
-                                          <strong
-                                            {...props}
-                                            style={{ 
-                                              backgroundColor: '#fbceb1', 
-                                              color: '#000000',
-                                              fontWeight: 'bold',
-                                              cursor: 'pointer', 
-                                              padding: '0 2px' 
-                                            }}
-                                            onMouseEnter={() => setHoveredTerm(termDef.term)}
-                                            onMouseLeave={() => setHoveredTerm(null)}
-                                          >
-                                            {children}
-                                          </strong>
-                                        );
+                              <TooltipProvider delayDuration={200}>
+                                <ReactMarkdown
+                                  remarkPlugins={[remarkGfm]}
+                                  className="markdown-body space-y-4"
+                                  components={{
+                                    strong: ({ children, ...props }: { children?: React.ReactNode; [key: string]: unknown }) => {
+                                      const termText = typeof children === 'string' ? children : 
+                                        Array.isArray(children) ? children.filter(c => typeof c === 'string').join('') : '';
+                                        
+                                      if (parsedMarkdown && parsedMarkdown.termDictionary.length > 0 && termText) {
+                                        const termDef = parsedMarkdown.termDictionary.find(t => t.term === termText);
+                                        
+                                        if (termDef) {
+                                          return (
+                                            <Tooltip key={termDef.term} delayDuration={200}>
+                                              <TooltipTrigger asChild>
+                                                <strong
+                                                  {...props}
+                                                  style={{ 
+                                                    backgroundColor: '#fbceb1', 
+                                                    color: '#000000',
+                                                    fontWeight: 'bold',
+                                                    cursor: 'pointer', 
+                                                    padding: '0 2px',
+                                                    textDecoration: 'underline',
+                                                    textDecorationStyle: 'dotted'
+                                                  }}
+                                                  onMouseEnter={() => setHoveredTerm(termDef.term)}
+                                                  onMouseLeave={() => setHoveredTerm(null)}
+                                                >
+                                                  {children}
+                                                </strong>
+                                              </TooltipTrigger>
+                                              <TooltipContent 
+                                                side="top" 
+                                                className="max-w-xs p-3 bg-white border border-gray-300 shadow-lg z-50"
+                                                sideOffset={5}
+                                                onMouseEnter={() => setHoveredTerm(termDef.term)}
+                                                onMouseLeave={() => setHoveredTerm(null)}
+                                              >
+                                                <div className="space-y-1">
+                                                  <div className="font-semibold text-sm text-gray-900">
+                                                    {termDef.term}
+                                                  </div>
+                                                  <div className="text-xs text-gray-600 leading-relaxed">
+                                                    {termDef.definition}
+                                                  </div>
+                                                </div>
+                                              </TooltipContent>
+                                            </Tooltip>
+                                          );
+                                        }
                                       }
+                                      return <strong {...props}>{children}</strong>;
                                     }
-                                    return <strong {...props}>{children}</strong>;
-                                  }
-                                }}
-                              >
-                                {parsedMarkdown.easyExplanation}
-                              </ReactMarkdown>
+                                  }}
+                                >
+                                  {parsedMarkdown.easyExplanation}
+                                </ReactMarkdown>
+                              </TooltipProvider>
                             </div>
                           </div>
                         )}
@@ -1030,8 +1110,34 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                   <CardContent>
                     {selectedLawData.original_content ? (
                       <ScrollArea className="h-[600px]">
-                        <div className="space-y-4 pr-4 text-sm leading-relaxed whitespace-pre-line">
-                          {selectedLawData.original_content}
+                        <div className="pr-4 text-sm leading-relaxed">
+                          <div className="space-y-3 font-mono text-[13px]">
+                            {formatOriginalContent(selectedLawData.original_content)
+                              .split('\n\n')
+                              .map((paragraph, idx) => {
+                                if (!paragraph.trim()) return null;
+                                
+                                // 조항 번호나 항 번호가 있는 경우 스타일 적용
+                                const isArticle = /^제\d+조/.test(paragraph.trim());
+                                const isItem = /^[①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳]/.test(paragraph.trim());
+                                const isNumbered = /^\d+\.\s/.test(paragraph.trim());
+                                
+                                return (
+                                  <div
+                                    key={idx}
+                                    className={`${
+                                      isArticle
+                                        ? 'font-bold text-base text-blue-700 pt-4 pb-2 border-b border-blue-200'
+                                        : isItem || isNumbered
+                                        ? 'font-semibold text-gray-800 pl-4'
+                                        : 'text-gray-700 pl-6 leading-7'
+                                    }`}
+                                  >
+                                    {paragraph.trim()}
+                                  </div>
+                                );
+                              })}
+                          </div>
                         </div>
                       </ScrollArea>
                     ) : (
@@ -1046,10 +1152,23 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
               <TabsContent value="cardnews" className="space-y-4">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Sparkles className="h-5 w-5 text-primary" />
-                      카드뉴스 ({cardNewsData?.total_cards || 0}장)
-                    </CardTitle>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="flex items-center gap-2">
+                        <Sparkles className="h-5 w-5 text-primary" />
+                        카드뉴스 ({cardNewsData?.total_cards || 0}장)
+                      </CardTitle>
+                      {cardNewsData && cardNewsData.images.length > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setIsFullscreen(true)}
+                          className="gap-2"
+                        >
+                          <Maximize2 className="h-4 w-4" />
+                          전체 화면
+                        </Button>
+                      )}
+                    </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {loadingCards ? (
@@ -1140,6 +1259,87 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                     )}
                   </CardContent>
                 </Card>
+
+                {/* 전체 화면 모달 */}
+                {cardNewsData && cardNewsData.images.length > 0 && (
+                  <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>
+                    <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-none [&>button]:hidden">
+                      <div className="relative w-full h-full flex items-center justify-center p-8">
+                        {/* 닫기 버튼 */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute top-4 right-4 z-50 text-white hover:bg-white/20"
+                          onClick={() => setIsFullscreen(false)}
+                        >
+                          <X className="h-6 w-6" />
+                        </Button>
+
+                        {/* 카드뉴스 이미지 */}
+                        <div className="relative max-w-full max-h-full flex items-center justify-center">
+                          <img
+                            src={`${API_BASE_URL}${cardNewsData.images[currentCardIndex]}`}
+                            alt={`카드 ${currentCardIndex + 1}`}
+                            className="max-w-full max-h-[85vh] object-contain"
+                            loading="lazy"
+                          />
+                        </div>
+
+                        {/* 이전 버튼 */}
+                        {currentCardIndex > 0 && (
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="absolute left-4 top-1/2 -translate-y-1/2 h-14 w-14 rounded-full bg-white/10 hover:bg-white/20 border-white/20 text-white z-50"
+                            onClick={handlePreviousCard}
+                            aria-label="이전 카드"
+                          >
+                            <ChevronLeft className="h-7 w-7" />
+                          </Button>
+                        )}
+
+                        {/* 다음 버튼 */}
+                        {currentCardIndex < cardNewsData.images.length - 1 && (
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="absolute right-4 top-1/2 -translate-y-1/2 h-14 w-14 rounded-full bg-white/10 hover:bg-white/20 border-white/20 text-white z-50"
+                            onClick={handleNextCard}
+                            aria-label="다음 카드"
+                          >
+                            <ChevronRight className="h-7 w-7" />
+                          </Button>
+                        )}
+
+                        {/* 하단 인디케이터 */}
+                        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-50 bg-black/50 rounded-full px-6 py-3 backdrop-blur-sm">
+                          <div className="flex items-center gap-4">
+                            {/* 카드 인디케이터 */}
+                            <div className="flex items-center gap-2">
+                              {cardNewsData.images.map((_, idx) => (
+                                <button
+                                  key={idx}
+                                  onClick={() => setCurrentCardIndex(idx)}
+                                  className={`rounded-full transition-all duration-200 ${
+                                    currentCardIndex === idx
+                                      ? 'w-3 h-3 bg-white ring-2 ring-white ring-offset-2 ring-offset-black/50'
+                                      : 'w-2.5 h-2.5 bg-white/40 hover:bg-white/60'
+                                  }`}
+                                  aria-label={`카드 ${idx + 1}로 이동`}
+                                />
+                              ))}
+                            </div>
+                            
+                            {/* 카드 번호 */}
+                            <div className="text-white text-sm font-medium px-3">
+                              {currentCardIndex + 1} / {cardNewsData.images.length}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                )}
               </TabsContent>
             </Tabs>
           </div>

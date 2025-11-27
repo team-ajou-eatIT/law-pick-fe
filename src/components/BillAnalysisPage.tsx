@@ -903,11 +903,27 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
 
               <TabsContent value="lawtext" className="space-y-4">
                 <Card>
-                  <CardHeader>
+                  <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <CardTitle className="flex items-center gap-2">
                       <BookOpen className="h-5 w-5 text-indigo-600" />
                       법률 원문
                     </CardTitle>
+                    {selectedBill.law_id && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        asChild
+                        className="sm:w-auto"
+                      >
+                        <a
+                          href={`https://law-pick.me/summary/all?law_id=${selectedBill.law_id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          법률 쉽게 살펴보기
+                        </a>
+                      </Button>
+                    )}
                   </CardHeader>
                   <CardContent>
                     {selectedBill.law_text ? (

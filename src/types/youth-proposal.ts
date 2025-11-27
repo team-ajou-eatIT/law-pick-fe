@@ -49,6 +49,7 @@ export interface YouthProposalDetail {
   // 기본 정보
   bill_no: string;
   is_youth_proposal: YouthProposalCategory;
+  law_id: string | null;               // 법령 ID (법률 쉽게 보기 링크용)
   
   // bill_detail 정보
   bill_nm: string | null;

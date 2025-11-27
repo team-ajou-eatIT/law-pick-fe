@@ -154,33 +154,37 @@ const parseMarkdown = (markdown: string): ParsedMarkdown => {
   // 쉬운 말 설명에서 괄호 안의 쉬운 설명 부분 제거
   // 예: "임대차(임대인이 임차인에게...)" → "임대차"
   const removeParenthesesExplanations = (text: string): string => {
-    // 괄호와 그 안의 내용을 제거 (단, 마크다운 링크나 이미지의 괄호는 제외)
+    if (!text) return text;
+    
+    // 각 줄을 개별적으로 처리하여 마크다운 구조 보존
     return text
       .split('\n')
       .map(line => {
-        // 마크다운 링크나 이미지 패턴을 보호하기 위해 임시 치환
+        // 빈 줄이나 마크다운 헤더는 그대로 유지
+        if (!line.trim() || line.match(/^#+\s/)) {
+          return line;
+        }
+        
+        // 마크다운 링크나 이미지의 괄호는 보호하기 위해 임시 치환
         const linkPattern = /\[([^\]]+)\]\(([^)]+)\)/g;
         const imagePattern = /!\[([^\]]*)\]\(([^)]+)\)/g;
-        const links: Array<{ placeholder: string; original: string }> = [];
-        const images: Array<{ placeholder: string; original: string }> = [];
+        const placeholders: Array<{ placeholder: string; original: string }> = [];
+        let placeholderIndex = 0;
         
         let processedLine = line;
-        let linkIndex = 0;
-        let imageIndex = 0;
         
-        // 링크 임시 치환
+        // 링크와 이미지 임시 치환
         processedLine = processedLine.replace(linkPattern, (match) => {
-          const placeholder = `__LINK_PLACEHOLDER_${linkIndex}__`;
-          links.push({ placeholder, original: match });
-          linkIndex++;
+          const placeholder = `__MD_LINK_${placeholderIndex}__`;
+          placeholders.push({ placeholder, original: match });
+          placeholderIndex++;
           return placeholder;
         });
         
-        // 이미지 임시 치환
         processedLine = processedLine.replace(imagePattern, (match) => {
-          const placeholder = `__IMAGE_PLACEHOLDER_${imageIndex}__`;
-          images.push({ placeholder, original: match });
-          imageIndex++;
+          const placeholder = `__MD_IMG_${placeholderIndex}__`;
+          placeholders.push({ placeholder, original: match });
+          placeholderIndex++;
           return placeholder;
         });
         
@@ -189,21 +193,15 @@ const parseMarkdown = (markdown: string): ParsedMarkdown => {
           .replace(/（[^）]*）/g, '') // 한글 괄호
           .replace(/\([^)]*\)/g, ''); // 영문 괄호
         
-        // 링크 복원
-        links.forEach(({ placeholder, original }) => {
+        // 링크와 이미지 복원
+        placeholders.forEach(({ placeholder, original }) => {
           processedLine = processedLine.replace(placeholder, original);
         });
         
-        // 이미지 복원
-        images.forEach(({ placeholder, original }) => {
-          processedLine = processedLine.replace(placeholder, original);
-        });
-        
-        return processedLine;
+        // 연속된 공백 정리 (줄바꿈은 유지)
+        return processedLine.replace(/\s+/g, ' ').trim();
       })
-      .join('\n')
-      .replace(/\s+/g, ' ') // 연속된 공백 제거
-      .trim();
+      .join('\n');
   };
   
   result.easyExplanation = removeParenthesesExplanations(easyExplanationLines.join('\n').trim());

@@ -934,7 +934,7 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
 
               <TabsContent value="lawtext" className="space-y-4">
                 <Card>
-                  <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <CardHeader className="flex flex-row flex-wrap items-center gap-3 justify-between">
                     <CardTitle className="flex items-center gap-2">
                       <BookOpen className="h-5 w-5 text-indigo-600" />
                       법률 원문

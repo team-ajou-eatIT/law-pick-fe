@@ -693,13 +693,13 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
                   <FileText className="h-4 w-4" />
                   안건 분석 리포트
                 </TabsTrigger>
-                <TabsTrigger value="lawtext" className="flex items-center gap-2">
-                  <BookOpen className="h-4 w-4" />
-                  법률 원문
-                </TabsTrigger>
                 <TabsTrigger value="core" className="flex items-center gap-2">
                   <Target className="h-4 w-4" />
                   핵심 내용
+                </TabsTrigger>
+                <TabsTrigger value="lawtext" className="flex items-center gap-2">
+                  <BookOpen className="h-4 w-4" />
+                  법률 원문
                 </TabsTrigger>
                 <TabsTrigger value="sources" className="flex items-center gap-2">
                   <ExternalLink className="h-4 w-4" />
@@ -772,32 +772,6 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
                       <Alert>
                         <AlertDescription>
                           안건 분석 리포트가 아직 생성되지 않았습니다.
-                        </AlertDescription>
-                      </Alert>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="lawtext" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <BookOpen className="h-5 w-5 text-indigo-600" />
-                      법률 원문
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {selectedBill.law_text ? (
-                      <ScrollArea className="h-[600px] w-full rounded-md border p-6">
-                        <div className="whitespace-pre-wrap font-mono text-sm leading-relaxed">
-                          {selectedBill.law_text}
-                        </div>
-                      </ScrollArea>
-                    ) : (
-                      <Alert>
-                        <AlertDescription>
-                          법률 원문이 아직 등록되지 않았습니다.
                         </AlertDescription>
                       </Alert>
                     )}
@@ -925,6 +899,32 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
                     </CardContent>
                   </Card>
                 )}
+              </TabsContent>
+
+              <TabsContent value="lawtext" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <BookOpen className="h-5 w-5 text-indigo-600" />
+                      법률 원문
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {selectedBill.law_text ? (
+                      <ScrollArea className="h-[600px] w-full rounded-md border p-6">
+                        <div className="whitespace-pre-wrap font-mono text-sm leading-relaxed">
+                          {selectedBill.law_text}
+                        </div>
+                      </ScrollArea>
+                    ) : (
+                      <Alert>
+                        <AlertDescription>
+                          법률 원문이 아직 등록되지 않았습니다.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </CardContent>
+                </Card>
               </TabsContent>
 
               <TabsContent value="sources" className="space-y-4">

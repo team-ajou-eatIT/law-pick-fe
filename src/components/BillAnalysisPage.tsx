@@ -98,6 +98,17 @@ const highlightText = (text: string, query: string): React.ReactNode => {
   });
 };
 
+const extractLawIdFromUrl = (url?: string | null): string | null => {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    return parsed.searchParams.get('law_id') || parsed.searchParams.get('lsiSeq');
+  } catch {
+    const match = url.match(/(?:law_id|lsiSeq)=([\w-]+)/i);
+    return match ? match[1] : null;
+  }
+};
+
 export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
@@ -649,6 +660,7 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
   const filteredBills = youthBills;
 
   if (selectedBill) {
+    const resolvedLawId = selectedBill.law_id || extractLawIdFromUrl(selectedBill.law_text_url);
     return (
       <div className="min-h-screen bg-background">
         {/* 헤더 */}
@@ -927,7 +939,7 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
                       <BookOpen className="h-5 w-5 text-indigo-600" />
                       법률 원문
                     </CardTitle>
-                    {selectedBill.law_id && (
+                    {resolvedLawId && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -935,7 +947,7 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
                         className="sm:w-auto"
                       >
                         <a
-                          href={`https://law-pick.me/summary/all?law_id=${selectedBill.law_id}`}
+                          href={`https://law-pick.me/summary/all?law_id=${resolvedLawId}`}
                           target="_blank"
                           rel="noopener noreferrer"
                         >

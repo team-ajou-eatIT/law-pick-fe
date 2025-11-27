@@ -591,11 +591,12 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
 
   // 법령 목록으로 돌아가기
   const handleBackToList = () => {
+    // 먼저 상태 초기화
     setSelectedLaw(null);
     setSelectedLawData(null);
     setCardNewsData(null);
 
-    // URL 업데이트 (category, search 유지, law_id 제거)
+    // URL 업데이트 (category, search, search_type, page 유지, law_id 제거)
     const params: Record<string, string> = {};
     const categoryStrings = Array.from(selectedCategories).map(cat => CATEGORY_MAP[cat]);
     if (categoryStrings.length > 0) {
@@ -604,11 +605,17 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     if (searchQuery.trim()) {
       params.search = searchQuery.trim();
     }
-    if (Object.keys(params).length > 0) {
-      setSearchParams(params);
-    } else {
-      setSearchParams({}, { replace: true });
+    if (searchType !== 'all') {
+      params.search_type = searchType;
     }
+    if (currentPage > 1) {
+      params.page = currentPage.toString();
+    }
+    // replace: false로 변경하여 브라우저 히스토리에 추가
+    setSearchParams(params);
+    
+    // 페이지 상단으로 스크롤
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // 카드뉴스 탭 클릭 시 로드
@@ -669,20 +676,20 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     
     // 조항 번호나 항 번호를 기준으로 줄바꿈 추가
     let formatted = content
-      // 조항 번호 (제1조, 제2조 등)
-      .replace(/(제\d+조)/g, '\n\n$1')
-      // 항 번호 (①, ②, ③ 등)
-      .replace(/([①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳])/g, '\n\n$1')
-      // 숫자 항 번호 (1., 2., 3. 등)
-      .replace(/(\d+\.\s)/g, '\n\n$1')
-      // 호 번호 (가., 나., 다. 등)
-      .replace(/([가나다라마바사아자차카타파하]\.\s)/g, '\n\n$1')
-      // 괄호 항목 (1), 2), 3) 등)
-      .replace(/(\d+\)\s)/g, '\n\n$1')
+      // 조항 번호 (제1조, 제2조 등) - 앞에 줄바꿈 추가
+      .replace(/([^\n])(제\d+조)/g, '$1\n\n$2')
+      // 항 번호 (①, ②, ③ 등) - 앞에 줄바꿈 추가
+      .replace(/([^\n])([①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳])/g, '$1\n\n$2')
+      // 숫자 항 번호 (1., 2., 3. 등) - 앞에 줄바꿈 추가
+      .replace(/([^\n])(\d+\.\s)/g, '$1\n\n$2')
+      // 호 번호 (가., 나., 다. 등) - 앞에 줄바꿈 추가
+      .replace(/([^\n])([가나다라마바사아자차카타파하]\.\s)/g, '$1\n\n$2')
+      // 괄호 항목 (1), 2), 3) 등) - 앞에 줄바꿈 추가
+      .replace(/([^\n])(\d+\)\s)/g, '$1\n\n$2')
       // 문장 끝에 마침표가 있고 다음 문장이 시작될 때 줄바꿈
       .replace(/\.\s+([가-힣])/g, '.\n$1')
-      // 연속된 공백 정리
-      .replace(/\s+/g, ' ')
+      // 연속된 공백 정리 (줄바꿈은 유지)
+      .replace(/[ \t]+/g, ' ')
       // 연속된 줄바꿈 정리 (최대 2개)
       .replace(/\n{3,}/g, '\n\n')
       .trim();
@@ -1103,7 +1110,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                     {selectedLawData.original_content ? (
                       <ScrollArea className="h-[600px]">
                         <div className="pr-4 text-sm leading-relaxed">
-                          <div className="space-y-3 font-mono text-[13px]">
+                          <div className="space-y-3 font-mono text-[13px] whitespace-pre-wrap break-words">
                             {formatOriginalContent(selectedLawData.original_content)
                               .split('\n\n')
                               .map((paragraph, idx) => {
@@ -1125,7 +1132,12 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                                         : 'text-gray-700 pl-6 leading-7'
                                     }`}
                                   >
-                                    {paragraph.trim()}
+                                    {paragraph.split('\n').map((line, lineIdx) => (
+                                      <React.Fragment key={lineIdx}>
+                                        {line.trim()}
+                                        {lineIdx < paragraph.split('\n').length - 1 && <br />}
+                                      </React.Fragment>
+                                    ))}
                                   </div>
                                 );
                               })}
@@ -1271,23 +1283,23 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                         margin: 0,
                       }}
                     >
-                      <div className="relative w-full h-full flex items-center justify-center p-8">
+                      <div className="relative w-full h-full flex items-center justify-center p-4 md:p-8">
                         {/* 닫기 버튼 */}
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="absolute top-4 right-4 z-50 text-white hover:bg-white/20"
+                          className="absolute top-2 right-2 md:top-4 md:right-4 z-50 text-white hover:bg-white/20 bg-black/30 rounded-full"
                           onClick={() => setIsFullscreen(false)}
                         >
-                          <X className="h-6 w-6" />
+                          <X className="h-5 w-5 md:h-6 md:w-6" />
                         </Button>
 
                         {/* 카드뉴스 이미지 */}
-                        <div className="relative max-w-full max-h-full flex items-center justify-center">
+                        <div className="relative w-full h-full flex items-center justify-center">
                           <img
                             src={`${API_BASE_URL}${cardNewsData.images[currentCardIndex]}`}
                             alt={`카드 ${currentCardIndex + 1}`}
-                            className="max-w-full max-h-[85vh] object-contain"
+                            className="max-w-[90vw] max-h-[75vh] md:max-h-[80vh] object-contain"
                             loading="lazy"
                           />
                         </div>
@@ -1297,11 +1309,11 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                           <Button
                             variant="outline"
                             size="icon"
-                            className="absolute left-4 top-1/2 -translate-y-1/2 h-14 w-14 rounded-full bg-white/10 hover:bg-white/20 border-white/20 text-white z-50"
+                            className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 h-10 w-10 md:h-14 md:w-14 rounded-full bg-white/20 hover:bg-white/30 border-white/30 text-white z-50 backdrop-blur-sm"
                             onClick={handlePreviousCard}
                             aria-label="이전 카드"
                           >
-                            <ChevronLeft className="h-7 w-7" />
+                            <ChevronLeft className="h-5 w-5 md:h-7 md:w-7" />
                           </Button>
                         )}
 
@@ -1310,27 +1322,27 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                           <Button
                             variant="outline"
                             size="icon"
-                            className="absolute right-4 top-1/2 -translate-y-1/2 h-14 w-14 rounded-full bg-white/10 hover:bg-white/20 border-white/20 text-white z-50"
+                            className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 h-10 w-10 md:h-14 md:w-14 rounded-full bg-white/20 hover:bg-white/30 border-white/30 text-white z-50 backdrop-blur-sm"
                             onClick={handleNextCard}
                             aria-label="다음 카드"
                           >
-                            <ChevronRight className="h-7 w-7" />
+                            <ChevronRight className="h-5 w-5 md:h-7 md:w-7" />
                           </Button>
                         )}
 
                         {/* 하단 인디케이터 */}
-                        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-50 bg-black/50 rounded-full px-6 py-3 backdrop-blur-sm">
-                          <div className="flex items-center gap-4">
+                        <div className="absolute bottom-4 md:bottom-8 left-1/2 -translate-x-1/2 z-50 bg-black/60 rounded-full px-4 py-2 md:px-6 md:py-3 backdrop-blur-sm">
+                          <div className="flex items-center gap-3 md:gap-4">
                             {/* 카드 인디케이터 */}
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5 md:gap-2">
                               {cardNewsData.images.map((_, idx) => (
                                 <button
                                   key={idx}
                                   onClick={() => setCurrentCardIndex(idx)}
                                   className={`rounded-full transition-all duration-200 ${
                                     currentCardIndex === idx
-                                      ? 'w-3 h-3 bg-white ring-2 ring-white ring-offset-2 ring-offset-black/50'
-                                      : 'w-2.5 h-2.5 bg-white/40 hover:bg-white/60'
+                                      ? 'w-2.5 h-2.5 md:w-3 md:h-3 bg-white ring-2 ring-white ring-offset-1 ring-offset-black/50'
+                                      : 'w-2 h-2 md:w-2.5 md:h-2.5 bg-white/50 hover:bg-white/70'
                                   }`}
                                   aria-label={`카드 ${idx + 1}로 이동`}
                                 />
@@ -1338,7 +1350,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                             </div>
                             
                             {/* 카드 번호 */}
-                            <div className="text-white text-sm font-medium px-3">
+                            <div className="text-white text-xs md:text-sm font-medium px-2 md:px-3">
                               {currentCardIndex + 1} / {cardNewsData.images.length}
                             </div>
                           </div>

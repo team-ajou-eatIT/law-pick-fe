@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ArrowLeft, Send, Bot, User, Scale, MessageCircle, FileText, Globe } from "lucide-react";
+import { ArrowLeft, Send, Bot, User, Scale, MessageCircle, FileText, Globe, Link2, ExternalLink } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { ScrollArea } from "./ui/scroll-area";
@@ -22,6 +22,54 @@ interface ChatBotPageProps {
 }
 
 export function ChatBotPage({ onBack, initialMessage }: ChatBotPageProps) {
+  const getMetadataValue = <T,>(metadata: Record<string, unknown> | undefined, key: string): T | undefined => {
+    if (!metadata) return undefined;
+    const value = metadata[key];
+    if (value === undefined || value === null) return undefined;
+    return value as T;
+  };
+
+  const renderSourceLinks = (source?: string) => {
+    if (!source) {
+      return <span className="text-xs text-muted-foreground">출처 정보가 제공되지 않았습니다.</span>;
+    }
+
+    const regex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
+    const links: { label: string; url: string }[] = [];
+    let match: RegExpExecArray | null;
+
+    while ((match = regex.exec(source)) !== null) {
+      links.push({ label: match[1], url: match[2] });
+    }
+
+    if (links.length === 0) {
+      return (
+        <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700">
+          <Link2 className="h-3 w-3" />
+          {source}
+        </span>
+      );
+    }
+
+    return (
+      <div className="flex flex-wrap gap-2">
+        {links.map((link, index) => (
+          <a
+            key={`${link.url}-${index}`}
+            href={link.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 transition hover:bg-blue-100"
+          >
+            <Link2 className="h-3 w-3" />
+            {link.label}
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        ))}
+      </div>
+    );
+  };
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
@@ -212,10 +260,29 @@ export function ChatBotPage({ onBack, initialMessage }: ChatBotPageProps) {
                         참조 문서 ({message.documents.length}개)
                       </p>
                       {message.documents.map((doc, idx) => (
-                        <Card key={idx} className="bg-white">
-                          <CardContent className="p-3">
-                            <p className="text-xs font-medium text-blue-600 mb-1">{doc.source}</p>
-                            <p className="text-xs text-gray-600 line-clamp-2">{doc.preview}</p>
+                        <Card key={idx} className="bg-white/90 border border-blue-100 shadow-sm hover:shadow-md transition">
+                          <CardContent className="p-4 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span
+                                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                                  getMetadataValue<string>(doc.metadata, "law_id")
+                                    ? "bg-blue-50 text-blue-700"
+                                    : "bg-emerald-50 text-emerald-700"
+                                }`}
+                              >
+                                <FileText className="h-3 w-3" />
+                                {getMetadataValue<string>(doc.metadata, "law_id") ? "법령 출처" : "외부 출처"}
+                              </span>
+                              {getMetadataValue<string>(doc.metadata, "law_id") && (
+                                <span className="text-[11px] font-mono text-gray-400">
+                                  #{getMetadataValue<string>(doc.metadata, "law_id")}
+                                </span>
+                              )}
+                            </div>
+                            {renderSourceLinks(doc.source)}
+                            <p className="text-xs leading-relaxed text-gray-600 border-l-2 border-blue-100 pl-3">
+                              {doc.preview}
+                            </p>
                           </CardContent>
                         </Card>
                       ))}

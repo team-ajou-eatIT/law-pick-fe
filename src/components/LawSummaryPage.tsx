@@ -150,7 +150,63 @@ const parseMarkdown = (markdown: string): ParsedMarkdown => {
   }
 
   result.lawInfo = lawInfoLines.join('\n').trim();
-  result.easyExplanation = easyExplanationLines.join('\n').trim();
+  
+  // 쉬운 말 설명에서 괄호 안의 쉬운 설명 부분 제거
+  // 예: "임대차(임대인이 임차인에게...)" → "임대차"
+  const removeParenthesesExplanations = (text: string): string => {
+    // 괄호와 그 안의 내용을 제거 (단, 마크다운 링크나 이미지의 괄호는 제외)
+    return text
+      .split('\n')
+      .map(line => {
+        // 마크다운 링크나 이미지 패턴을 보호하기 위해 임시 치환
+        const linkPattern = /\[([^\]]+)\]\(([^)]+)\)/g;
+        const imagePattern = /!\[([^\]]*)\]\(([^)]+)\)/g;
+        const links: Array<{ placeholder: string; original: string }> = [];
+        const images: Array<{ placeholder: string; original: string }> = [];
+        
+        let processedLine = line;
+        let linkIndex = 0;
+        let imageIndex = 0;
+        
+        // 링크 임시 치환
+        processedLine = processedLine.replace(linkPattern, (match) => {
+          const placeholder = `__LINK_PLACEHOLDER_${linkIndex}__`;
+          links.push({ placeholder, original: match });
+          linkIndex++;
+          return placeholder;
+        });
+        
+        // 이미지 임시 치환
+        processedLine = processedLine.replace(imagePattern, (match) => {
+          const placeholder = `__IMAGE_PLACEHOLDER_${imageIndex}__`;
+          images.push({ placeholder, original: match });
+          imageIndex++;
+          return placeholder;
+        });
+        
+        // 괄호 안의 내용 제거 (한글 괄호와 영문 괄호 모두 처리)
+        processedLine = processedLine
+          .replace(/（[^）]*）/g, '') // 한글 괄호
+          .replace(/\([^)]*\)/g, ''); // 영문 괄호
+        
+        // 링크 복원
+        links.forEach(({ placeholder, original }) => {
+          processedLine = processedLine.replace(placeholder, original);
+        });
+        
+        // 이미지 복원
+        images.forEach(({ placeholder, original }) => {
+          processedLine = processedLine.replace(placeholder, original);
+        });
+        
+        return processedLine;
+      })
+      .join('\n')
+      .replace(/\s+/g, ' ') // 연속된 공백 제거
+      .trim();
+  };
+  
+  result.easyExplanation = removeParenthesesExplanations(easyExplanationLines.join('\n').trim());
   result.termDictionary = dictionaryEntries;
   
   if (compareSection && (compareSection.before.length > 0 || compareSection.after.length > 0)) {
@@ -203,7 +259,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
   // 선택된 카테고리를 Set으로 관리 (토글 방식)
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState<string>(searchQueryFromUrl);
-  const [searchType, setSearchType] = useState<'all' | 'title' | 'ministry' | 'content'>(searchTypeFromUrl as 'all' | 'title' | 'ministry' | 'content' || 'all');
+  const [searchType, setSearchType] = useState<'all' | 'title' | 'ministry' | 'content' | 'date'>(searchTypeFromUrl as 'all' | 'title' | 'ministry' | 'content' | 'date' || 'all');
   const [selectedLaw, setSelectedLaw] = useState<LawListItem | null>(null);
   const [selectedLawData, setSelectedLawData] = useState<LawSummaryResponse | null>(null);
   const [cardNewsData, setCardNewsData] = useState<LawCardsResponse | null>(null);
@@ -359,6 +415,12 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
               (law.short_desc?.toLowerCase().includes(searchLower) ?? false) ||
               (law.one_line_summary?.toLowerCase().includes(searchLower) ?? false)
             );
+          case 'date':
+            // 통과일 필터링 (YYYY-MM-DD 형식으로 검색)
+            if (law.start_date) {
+              return law.start_date.includes(searchLower);
+            }
+            return false;
           default:
             return true;
         }
@@ -592,6 +654,12 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
               (law.short_desc?.toLowerCase().includes(searchLower) ?? false) ||
               (law.one_line_summary?.toLowerCase().includes(searchLower) ?? false)
             );
+          case 'date':
+            // 통과일 필터링 (YYYY-MM-DD 형식으로 검색)
+            if (law.start_date) {
+              return law.start_date.includes(searchLower);
+            }
+            return false;
           default:
             return true;
         }
@@ -1147,7 +1215,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
               {/* 검색 타입 선택 */}
               <Select
                 value={searchType}
-                onValueChange={(value) => setSearchType(value as 'all' | 'title' | 'ministry' | 'content')}
+                onValueChange={(value) => setSearchType(value as 'all' | 'title' | 'ministry' | 'content' | 'date')}
                 disabled={loading}
               >
                 <SelectTrigger className="w-[140px] h-9">
@@ -1164,11 +1232,12 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  type="text"
+                  type={searchType === 'date' ? 'date' : 'text'}
                   placeholder={
                     searchType === 'all' ? '법령명, 내용, 소관 부처 검색...' :
                     searchType === 'title' ? '법령명을 입력하세요...' :
                     searchType === 'ministry' ? '소관 부처를 입력하세요...' :
+                    searchType === 'date' ? '통과일을 선택하세요...' :
                     '내용을 입력하세요...'
                   }
                   value={searchQuery}

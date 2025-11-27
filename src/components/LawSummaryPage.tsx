@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useSearchParams, useLocation } from "react-router-dom";
 import { ArrowLeft, FileText, Search, Sparkles, BookOpen, MessageCircle, Copy, ExternalLink, Calendar, Loader2, ChevronLeft, ChevronRight, Maximize2, X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
@@ -16,12 +16,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "./ui/tooltip";
 import {
   Dialog,
   DialogContent,
@@ -280,11 +274,28 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
   const [hoveredTerm, setHoveredTerm] = useState<string | null>(null);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const termDictionaryRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   
   const ITEMS_PER_PAGE = 30;
   
   // markdown 파싱 결과
   const parsedMarkdown = selectedLawData?.markdown ? parseMarkdown(selectedLawData.markdown) : null;
+
+  // 호버된 용어에 따라 쉬운말 사전 자동 스크롤
+  useEffect(() => {
+    if (hoveredTerm) {
+      const termElement = termDictionaryRefs.current[hoveredTerm];
+      if (termElement) {
+        // 약간의 지연을 두어 DOM 업데이트 후 스크롤
+        setTimeout(() => {
+          termElement.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+          });
+        }, 100);
+      }
+    }
+  }, [hoveredTerm]);
 
   // URL 파라미터에서 초기 카테고리 설정
   useEffect(() => {
@@ -881,66 +892,44 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                           <div className="border-l-4 border-green-500 pl-4 py-2">
                             <h4 className="font-semibold text-green-800 mb-2">쉬운 말 설명 및 요약</h4>
                             <div className="text-sm leading-relaxed text-muted-foreground">
-                              <TooltipProvider delayDuration={200}>
-                                <ReactMarkdown
-                                  remarkPlugins={[remarkGfm]}
-                                  className="markdown-body space-y-4"
-                                  components={{
-                                    strong: ({ children, ...props }: { children?: React.ReactNode; [key: string]: unknown }) => {
-                                      const termText = typeof children === 'string' ? children : 
-                                        Array.isArray(children) ? children.filter(c => typeof c === 'string').join('') : '';
-                                        
-                                      if (parsedMarkdown && parsedMarkdown.termDictionary.length > 0 && termText) {
-                                        const termDef = parsedMarkdown.termDictionary.find(t => t.term === termText);
-                                        
-                                        if (termDef) {
-                                          return (
-                                            <Tooltip key={termDef.term} delayDuration={200}>
-                                              <TooltipTrigger asChild>
-                                                <strong
-                                                  {...props}
-                                                  style={{ 
-                                                    backgroundColor: '#fbceb1', 
-                                                    color: '#000000',
-                                                    fontWeight: 'bold',
-                                                    cursor: 'pointer', 
-                                                    padding: '0 2px',
-                                                    textDecoration: 'underline',
-                                                    textDecorationStyle: 'dotted'
-                                                  }}
-                                                  onMouseEnter={() => setHoveredTerm(termDef.term)}
-                                                  onMouseLeave={() => setHoveredTerm(null)}
-                                                >
-                                                  {children}
-                                                </strong>
-                                              </TooltipTrigger>
-                                              <TooltipContent 
-                                                side="top" 
-                                                className="max-w-xs p-3 bg-white border border-gray-300 shadow-lg z-50"
-                                                sideOffset={5}
-                                                onMouseEnter={() => setHoveredTerm(termDef.term)}
-                                                onMouseLeave={() => setHoveredTerm(null)}
-                                              >
-                                                <div className="space-y-1">
-                                                  <div className="font-semibold text-sm text-gray-900">
-                                                    {termDef.term}
-                                                  </div>
-                                                  <div className="text-xs text-gray-600 leading-relaxed">
-                                                    {termDef.definition}
-                                                  </div>
-                                                </div>
-                                              </TooltipContent>
-                                            </Tooltip>
-                                          );
-                                        }
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                className="markdown-body space-y-4"
+                                components={{
+                                  strong: ({ children, ...props }: { children?: React.ReactNode; [key: string]: unknown }) => {
+                                    const termText = typeof children === 'string' ? children : 
+                                      Array.isArray(children) ? children.filter(c => typeof c === 'string').join('') : '';
+                                      
+                                    if (parsedMarkdown && parsedMarkdown.termDictionary.length > 0 && termText) {
+                                      const termDef = parsedMarkdown.termDictionary.find(t => t.term === termText);
+                                      
+                                      if (termDef) {
+                                        return (
+                                          <strong
+                                            {...props}
+                                            style={{ 
+                                              backgroundColor: '#fbceb1', 
+                                              color: '#000000',
+                                              fontWeight: 'bold',
+                                              cursor: 'pointer', 
+                                              padding: '0 2px',
+                                              textDecoration: 'underline',
+                                              textDecorationStyle: 'dotted'
+                                            }}
+                                            onMouseEnter={() => setHoveredTerm(termDef.term)}
+                                            onMouseLeave={() => setHoveredTerm(null)}
+                                          >
+                                            {children}
+                                          </strong>
+                                        );
                                       }
-                                      return <strong {...props}>{children}</strong>;
                                     }
-                                  }}
-                                >
-                                  {parsedMarkdown.easyExplanation}
-                                </ReactMarkdown>
-                              </TooltipProvider>
+                                    return <strong {...props}>{children}</strong>;
+                                  }
+                                }}
+                              >
+                                {parsedMarkdown.easyExplanation}
+                              </ReactMarkdown>
                             </div>
                           </div>
                         )}
@@ -1048,6 +1037,9 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                               {parsedMarkdown.termDictionary.map((term, idx) => (
                                 <div
                                   key={idx}
+                                  ref={(el) => {
+                                    termDictionaryRefs.current[term.term] = el;
+                                  }}
                                   className={`p-3 rounded-lg border transition-colors ${
                                     hoveredTerm === term.term
                                       ? 'bg-green-50 border-green-500'
@@ -1263,7 +1255,22 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                 {/* 전체 화면 모달 */}
                 {cardNewsData && cardNewsData.images.length > 0 && (
                   <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>
-                    <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-none [&>button]:hidden">
+                    <DialogContent 
+                      className="!max-w-none !max-h-none !w-full !h-full p-0 bg-black/95 border-none rounded-none [&>button]:hidden !m-0 !translate-x-0 !translate-y-0 !top-0 !left-0 !right-0 !bottom-0 !inset-0"
+                      style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        width: '100vw',
+                        height: '100vh',
+                        maxWidth: '100vw',
+                        maxHeight: '100vh',
+                        transform: 'none',
+                        margin: 0,
+                      }}
+                    >
                       <div className="relative w-full h-full flex items-center justify-center p-8">
                         {/* 닫기 버튼 */}
                         <Button

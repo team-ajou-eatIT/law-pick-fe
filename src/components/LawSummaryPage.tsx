@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams, useLocation } from "react-router-dom";
 import { ArrowLeft, FileText, Search, Sparkles, BookOpen, MessageCircle, Copy, ExternalLink, Calendar, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import ReactMarkdown from "react-markdown";
@@ -387,246 +387,71 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     }
   }, [categoryFromUrl, searchQueryFromUrl, searchTypeFromUrl, dateStartFromUrl, dateEndFromUrl, pageFromUrl, isAllPath]);
 
-  // URL에 law_id가 있으면 해당 법령 자동 로드
-  useEffect(() => {
-    const lawIdFromUrl = searchParams.get("law_id");
-    if (lawIdFromUrl && laws.length > 0) {
-      const law = laws.find(l => l.law_id === lawIdFromUrl);
-      if (law && law.law_id !== selectedLaw?.law_id) {
-        handleLawSelect(law);
-      }
-    } else if (!lawIdFromUrl && selectedLaw) {
-      // 브라우저 뒤로가기 등으로 law_id가 사라진 경우: 상세 상태 초기화
-      setSelectedLaw(null);
-      setSelectedLawData(null);
-      setCardNewsData(null);
-    }
-  }, [searchParams, laws, selectedLaw]);
-
-  // 법령 목록 가져오기 (필터나 페이지 변경 시)
-  // 단일 카테고리 또는 카테고리 미선택 시에만 실행 (여러 카테고리는 별도 useEffect에서 처리)
-  useEffect(() => {
-    if (selectedCategories.size <= 1) {
-      loadLaws();
-    }
-  }, [selectedCategories, searchQueryFromUrl, searchTypeFromUrl, dateStartFromUrl, dateEndFromUrl, currentPage]);
-
-  const loadLaws = async () => {
-    setLoading(true);
+  // law_id만으로 직접 상세 정보 로드 (목록 없이) - useEffect보다 먼저 선언 필요
+  const handleLawSelectDirectly = useCallback(async (lawId: string) => {
+    setIsAnalyzing(true);
+    setCardNewsData(null);
     
+    // URL 업데이트 (기존 필터 파라미터 유지)
+    const params: Record<string, string> = { law_id: lawId };
+    const categoryStrings = Array.from(selectedCategories).map(cat => CATEGORY_MAP[cat]);
+    if (categoryStrings.length > 0) {
+      params.category = categoryStrings.join(',');
+    }
+    if (searchType === 'date') {
+      if (dateStart) {
+        params.date_start = dateStart;
+      }
+      if (dateEnd) {
+        params.date_end = dateEnd;
+      }
+      params.search_type = 'date';
+    } else {
+      if (searchQuery.trim()) {
+        params.search = searchQuery.trim();
+      }
+      if (searchType !== 'all') {
+        params.search_type = searchType;
+      }
+    }
+    if (currentPage > 1) {
+      params.page = currentPage.toString();
+    }
+    setSearchParams(params);
+
     try {
-      // 선택된 카테고리가 없거나 여러 개면 전체 조회 (category 파라미터 없이)
-      // 선택된 카테고리가 하나면 해당 카테고리만 조회
-      const category = selectedCategories.size === 1 
-        ? CATEGORY_MAP[Array.from(selectedCategories)[0]]
-        : undefined;
-
-      // 서버 사이드 필터링 및 페이징 사용
-      const activeSearchType = isValidSearchType(searchTypeFromUrl) ? searchTypeFromUrl : searchType;
-      const dateStartParam = dateStartFromUrl ? dateStartFromUrl : undefined;
-      const dateEndParam = dateEndFromUrl ? dateEndFromUrl : undefined;
-      const searchParam = activeSearchType !== 'date' ? (searchQueryFromUrl.trim() || undefined) : undefined;
-      const searchMode = activeSearchType !== 'all' ? activeSearchType : undefined;
-
-      // 서버 사이드 페이징: 현재 페이지와 페이지 크기 전달
-      const response = await getLawList({
-        category,
-        page: currentPage,
-        size: ITEMS_PER_PAGE,
-        search: searchParam,
-        search_type: searchMode,
-        date_start: activeSearchType === 'date' ? dateStartParam : undefined,
-        date_end: activeSearchType === 'date' ? dateEndParam : undefined,
-      });
+      const response = await getLawDetail(lawId);
 
       if (response.data) {
-        // 백엔드에서 이미 필터링 및 페이징된 데이터를 받음
-        setLaws(response.data.items);
-        // 전체 개수는 백엔드에서 받은 total 사용
-        setTotalCount(response.data.total);
+        // 목록에서 가져온 정보가 없으므로 최소한의 정보로 LawListItem 생성
+        const lawItem: LawListItem = {
+          law_id: lawId,
+          title: response.data.title || '법령명 없음',
+          start_date: response.data.start_date || '',
+          short_desc: '',
+          category: '',
+          responsible_ministry: response.data.responsible_ministry || undefined,
+          one_line_summary: response.data.one_line_summary || null,
+        };
+        
+        setSelectedLaw(lawItem);
+        setSelectedLawData(response.data);
       } else {
-        console.error("법령 목록 로드 실패:", response.error);
-        setLaws([]);
-        setTotalCount(0);
+        console.error("법령 상세 로드 실패:", response.error);
+        setSelectedLaw(null);
+        setSelectedLawData(null);
       }
-    } catch (err) {
-      console.error("법령 목록 로드 중 오류:", err);
-      setLaws([]);
-      setTotalCount(0);
+    } catch (error) {
+      console.error("법령 상세 로드 중 오류:", error);
+      setSelectedLaw(null);
+      setSelectedLawData(null);
     } finally {
-      setLoading(false);
+      setIsAnalyzing(false);
     }
-  };
+  }, [selectedCategories, searchType, dateStart, dateEnd, searchQuery, currentPage, setSearchParams]);
 
-  // 여러 카테고리 선택 시 클라이언트 사이드 필터링 (백엔드는 단일 카테고리만 지원)
-  useEffect(() => {
-    if (selectedCategories.size > 1) {
-      // 여러 카테고리 선택 시: 모든 데이터를 가져와서 클라이언트에서 필터링
-      // 이 경우는 성능 저하가 있지만, 백엔드가 다중 카테고리를 지원하지 않으므로 필요
-      const loadAllForMultiCategory = async () => {
-        setLoading(true);
-        try {
-          const activeSearchType = isValidSearchType(searchTypeFromUrl) ? searchTypeFromUrl : searchType;
-          const dateStartParam = dateStartFromUrl ? dateStartFromUrl : undefined;
-          const dateEndParam = dateEndFromUrl ? dateEndFromUrl : undefined;
-          const searchParam = activeSearchType !== 'date' ? (searchQueryFromUrl.trim() || undefined) : undefined;
-          const searchMode = activeSearchType !== 'all' ? activeSearchType : undefined;
-
-          // 여러 카테고리 선택 시에는 category 파라미터 없이 전체 조회
-          const response = await getLawList({
-            page: 1,
-            size: 1000, // 여러 카테고리 선택 시에만 큰 사이즈 사용
-            search: searchParam,
-            search_type: searchMode,
-            date_start: activeSearchType === 'date' ? dateStartParam : undefined,
-            date_end: activeSearchType === 'date' ? dateEndParam : undefined,
-          });
-
-          if (response.data) {
-            // 클라이언트 사이드 필터링
-            const categoryKeys = Array.from(selectedCategories).map(cat => CATEGORY_MAP[cat]);
-            let filtered = response.data.items.filter(law => 
-              categoryKeys.includes(law.category)
-            );
-            
-            // 소관부처 기준 가나다 순 정렬
-            filtered.sort((a, b) => {
-              const ministryA = a.responsible_ministry || '';
-              const ministryB = b.responsible_ministry || '';
-              return ministryA.localeCompare(ministryB, 'ko');
-            });
-            
-            // 페이징 적용
-            const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
-            const validPage = Math.max(1, Math.min(currentPage, totalPages || 1));
-            const startIndex = (validPage - 1) * ITEMS_PER_PAGE;
-            const endIndex = startIndex + ITEMS_PER_PAGE;
-            
-            setLaws(filtered.slice(startIndex, endIndex));
-            setTotalCount(filtered.length);
-          }
-        } catch (err) {
-          console.error("법령 목록 로드 중 오류:", err);
-          setLaws([]);
-          setTotalCount(0);
-        } finally {
-          setLoading(false);
-        }
-      };
-      
-      loadAllForMultiCategory();
-    }
-  }, [selectedCategories, searchQueryFromUrl, searchTypeFromUrl, dateStartFromUrl, dateEndFromUrl, currentPage]);
-
-  // 카테고리 토글 핸들러 (단일 선택만 가능)
-  const handleCategoryToggle = (category: string) => {
-    setSelectedLaw(null);
-    setSelectedLawData(null);
-    setCardNewsData(null);
-    
-    const newCategories = new Set<string>();
-    
-    if (selectedCategories.has(category)) {
-      // 이미 선택된 경우 제거 (전체 보기)
-      // newCategories는 빈 Set
-    } else {
-      // 선택되지 않은 경우 해당 카테고리만 추가 (기존 선택 무시)
-      newCategories.add(category);
-    }
-    
-    setSelectedCategories(newCategories);
-
-    // URL 업데이트
-    setCurrentPage(1); // 카테고리 변경 시 첫 페이지로 리셋
-    const params: Record<string, string> = {};
-    if (newCategories.size > 0) {
-      const categoryStrings = Array.from(newCategories).map(cat => CATEGORY_MAP[cat]);
-      params.category = categoryStrings.join(',');
-    }
-    if (searchType === 'date') {
-      if (dateStart) {
-        params.date_start = dateStart;
-      }
-      if (dateEnd) {
-        params.date_end = dateEnd;
-      }
-      params.search_type = 'date';
-    } else {
-      if (searchQuery.trim()) {
-        params.search = searchQuery.trim();
-      }
-      if (searchType !== 'all') {
-        params.search_type = searchType;
-      }
-    }
-    params.page = '1';
-    setSearchParams(params, { replace: true });
-  };
-
-  // 검색어 변경 핸들러
-  const handleSearchChange = (value: string) => {
-    setSearchQuery(value);
-  };
-
-  // 검색 실행 핸들러
-  const handleSearchSubmit = () => {
-    setSelectedLaw(null);
-    setSelectedLawData(null);
-    setCardNewsData(null);
-    setCurrentPage(1); // 검색 시 첫 페이지로 리셋
-    const params: Record<string, string> = {};
-    const categoryStrings = Array.from(selectedCategories).map(cat => CATEGORY_MAP[cat]);
-    if (categoryStrings.length > 0) {
-      params.category = categoryStrings.join(',');
-    }
-    if (searchType === 'date') {
-      if (dateStart) {
-        params.date_start = dateStart;
-      }
-      if (dateEnd) {
-        params.date_end = dateEnd;
-      }
-      params.search_type = 'date';
-    } else {
-      if (searchQuery.trim()) {
-        params.search = searchQuery.trim();
-      }
-      if (searchType !== 'all') {
-        params.search_type = searchType;
-      }
-    }
-    params.page = '1'; // 검색 시 첫 페이지
-    setSearchParams(params, { replace: true });
-  };
-
-  // 검색어 초기화 핸들러
-  const handleSearchClear = () => {
-    setSearchQuery("");
-    setSearchType('all');
-    setDateStart("");
-    setDateEnd("");
-    setCurrentPage(1); // 초기화 시 첫 페이지로 리셋
-    setSelectedLaw(null);
-    setSelectedLawData(null);
-    setCardNewsData(null);
-    const params: Record<string, string> = {};
-    const categoryStrings = Array.from(selectedCategories).map(cat => CATEGORY_MAP[cat]);
-    if (categoryStrings.length > 0) {
-      params.category = categoryStrings.join(',');
-    }
-    params.page = '1';
-    setSearchParams(params, { replace: true });
-  };
-
-  // Enter 키 핸들러
-  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      handleSearchSubmit();
-    }
-  };
-
-  // 법령 상세 가져오기
-  const handleLawSelect = async (law: LawListItem) => {
+  // 법령 상세 가져오기 (목록에서 선택) - useEffect보다 먼저 선언 필요
+  const handleLawSelect = useCallback(async (law: LawListItem) => {
     setSelectedLaw(law);
     setIsAnalyzing(true);
     setCardNewsData(null); // 이전 카드뉴스 초기화
@@ -671,14 +496,263 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     } finally {
       setIsAnalyzing(false);
     }
+  }, [selectedCategories, searchType, dateStart, dateEnd, searchQuery, setSearchParams]);
+
+  // URL에 law_id가 있으면 해당 법령 자동 로드
+  useEffect(() => {
+    const lawIdFromUrl = searchParams.get("law_id");
+    
+    if (lawIdFromUrl) {
+      // law_id가 있으면 상세 페이지 표시 (목록에 있으면 바로 선택, 없으면 직접 로드)
+      if (laws.length > 0) {
+        // 목록에 있으면 바로 선택
+      const law = laws.find(l => l.law_id === lawIdFromUrl);
+      if (law && law.law_id !== selectedLaw?.law_id) {
+        handleLawSelect(law);
+      }
+      } else if (!selectedLaw || selectedLaw.law_id !== lawIdFromUrl) {
+        // 목록에 없으면 law_id만으로 직접 상세 정보 로드
+        handleLawSelectDirectly(lawIdFromUrl);
+      }
+    } else if (!lawIdFromUrl && selectedLaw) {
+      // 브라우저 뒤로가기 등으로 law_id가 사라진 경우: 상세 상태 초기화
+      setSelectedLaw(null);
+      setSelectedLawData(null);
+      setCardNewsData(null);
+    }
+  }, [searchParams, laws, selectedLaw, handleLawSelectDirectly, handleLawSelect]);
+
+  // 법령 목록 가져오기 (필터나 페이지 변경 시)
+  // law_id가 URL에 없을 때만 목록 로드 (상세 페이지에서는 목록 불필요)
+  useEffect(() => {
+    const lawIdFromUrl = searchParams.get("law_id");
+    // law_id가 없고, 단일 카테고리 또는 카테고리 미선택 시에만 목록 로드
+    if (!lawIdFromUrl && selectedCategories.size <= 1) {
+    loadLaws();
+    }
+  }, [selectedCategories, searchQueryFromUrl, searchTypeFromUrl, dateStartFromUrl, dateEndFromUrl, currentPage, searchParams]);
+
+  const loadLaws = async () => {
+    setLoading(true);
+    
+    try {
+      // 선택된 카테고리가 없거나 여러 개면 전체 조회 (category 파라미터 없이)
+      // 선택된 카테고리가 하나면 해당 카테고리만 조회
+      const category = selectedCategories.size === 1 
+        ? CATEGORY_MAP[Array.from(selectedCategories)[0]]
+        : undefined;
+      
+      // 서버 사이드 필터링 및 페이징 사용
+      const activeSearchType = isValidSearchType(searchTypeFromUrl) ? searchTypeFromUrl : searchType;
+      const dateStartParam = dateStartFromUrl ? dateStartFromUrl : undefined;
+      const dateEndParam = dateEndFromUrl ? dateEndFromUrl : undefined;
+      const searchParam = activeSearchType !== 'date' ? (searchQueryFromUrl.trim() || undefined) : undefined;
+      const searchMode = activeSearchType !== 'all' ? activeSearchType : undefined;
+
+      // 서버 사이드 페이징: 현재 페이지와 페이지 크기 전달
+      const response = await getLawList({
+        category,
+        page: currentPage,
+        size: ITEMS_PER_PAGE,
+        search: searchParam,
+        search_type: searchMode,
+        date_start: activeSearchType === 'date' ? dateStartParam : undefined,
+        date_end: activeSearchType === 'date' ? dateEndParam : undefined,
+      });
+
+      if (response.data) {
+        // 백엔드에서 이미 필터링 및 페이징된 데이터를 받음
+        setLaws(response.data.items);
+        // 전체 개수는 백엔드에서 받은 total 사용
+        setTotalCount(response.data.total);
+      } else {
+        console.error("법령 목록 로드 실패:", response.error);
+        setLaws([]);
+        setTotalCount(0);
+      }
+    } catch (err) {
+      console.error("법령 목록 로드 중 오류:", err);
+      setLaws([]);
+      setTotalCount(0);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 여러 카테고리 선택 시 클라이언트 사이드 필터링 (백엔드는 단일 카테고리만 지원)
+  useEffect(() => {
+    const lawIdFromUrl = searchParams.get("law_id");
+    // law_id가 있으면 목록 로드하지 않음 (상세 페이지 표시)
+    if (lawIdFromUrl) return;
+    
+        if (selectedCategories.size > 1) {
+      // 여러 카테고리 선택 시: 모든 데이터를 가져와서 클라이언트에서 필터링
+      // 이 경우는 성능 저하가 있지만, 백엔드가 다중 카테고리를 지원하지 않으므로 필요
+      const loadAllForMultiCategory = async () => {
+        setLoading(true);
+        try {
+          const activeSearchType = isValidSearchType(searchTypeFromUrl) ? searchTypeFromUrl : searchType;
+          const dateStartParam = dateStartFromUrl ? dateStartFromUrl : undefined;
+          const dateEndParam = dateEndFromUrl ? dateEndFromUrl : undefined;
+          const searchParam = activeSearchType !== 'date' ? (searchQueryFromUrl.trim() || undefined) : undefined;
+          const searchMode = activeSearchType !== 'all' ? activeSearchType : undefined;
+
+          // 여러 카테고리 선택 시에는 category 파라미터 없이 전체 조회
+          const response = await getLawList({
+            page: 1,
+            size: 1000, // 여러 카테고리 선택 시에만 큰 사이즈 사용
+            search: searchParam,
+            search_type: searchMode,
+            date_start: activeSearchType === 'date' ? dateStartParam : undefined,
+            date_end: activeSearchType === 'date' ? dateEndParam : undefined,
+          });
+
+          if (response.data) {
+            // 클라이언트 사이드 필터링
+          const categoryKeys = Array.from(selectedCategories).map(cat => CATEGORY_MAP[cat]);
+            let filtered = response.data.items.filter(law => 
+            categoryKeys.includes(law.category)
+          );
+            
+            // 소관부처 기준 가나다 순 정렬
+            filtered.sort((a, b) => {
+              const ministryA = a.responsible_ministry || '';
+              const ministryB = b.responsible_ministry || '';
+              return ministryA.localeCompare(ministryB, 'ko');
+            });
+            
+            // 페이징 적용
+            const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+            const validPage = Math.max(1, Math.min(currentPage, totalPages || 1));
+            const startIndex = (validPage - 1) * ITEMS_PER_PAGE;
+            const endIndex = startIndex + ITEMS_PER_PAGE;
+            
+            setLaws(filtered.slice(startIndex, endIndex));
+            setTotalCount(filtered.length);
+      }
+    } catch (err) {
+      console.error("법령 목록 로드 중 오류:", err);
+          setLaws([]);
+          setTotalCount(0);
+    } finally {
+      setLoading(false);
+    }
+  };
+      
+      loadAllForMultiCategory();
+    }
+  }, [selectedCategories, searchQueryFromUrl, searchTypeFromUrl, dateStartFromUrl, dateEndFromUrl, currentPage]);
+
+  // 카테고리 토글 핸들러 (단일 선택만 가능)
+  const handleCategoryToggle = (category: string) => {
+    setSelectedLaw(null);
+    setSelectedLawData(null);
+    setCardNewsData(null);
+    
+    const newCategories = new Set<string>();
+    
+    if (selectedCategories.has(category)) {
+      // 이미 선택된 경우 제거 (전체 보기)
+      // newCategories는 빈 Set
+    } else {
+      // 선택되지 않은 경우 해당 카테고리만 추가 (기존 선택 무시)
+      newCategories.add(category);
+    }
+    
+    setSelectedCategories(newCategories);
+
+    // URL 업데이트
+    setCurrentPage(1); // 카테고리 변경 시 첫 페이지로 리셋
+    const params: Record<string, string> = {};
+    if (newCategories.size > 0) {
+      const categoryStrings = Array.from(newCategories).map(cat => CATEGORY_MAP[cat]);
+      params.category = categoryStrings.join(',');
+    }
+    if (searchType === 'date') {
+      if (dateStart) {
+        params.date_start = dateStart;
+      }
+      if (dateEnd) {
+        params.date_end = dateEnd;
+      }
+      params.search_type = 'date';
+    } else {
+    if (searchQuery.trim()) {
+      params.search = searchQuery.trim();
+    }
+      if (searchType !== 'all') {
+        params.search_type = searchType;
+      }
+    }
+    params.page = '1';
+    setSearchParams(params, { replace: true });
+  };
+
+  // 검색어 변경 핸들러
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+  };
+
+  // 검색 실행 핸들러
+  const handleSearchSubmit = () => {
+    setSelectedLaw(null);
+    setSelectedLawData(null);
+    setCardNewsData(null);
+    setCurrentPage(1); // 검색 시 첫 페이지로 리셋
+    const params: Record<string, string> = {};
+    const categoryStrings = Array.from(selectedCategories).map(cat => CATEGORY_MAP[cat]);
+    if (categoryStrings.length > 0) {
+      params.category = categoryStrings.join(',');
+    }
+    if (searchType === 'date') {
+      if (dateStart) {
+        params.date_start = dateStart;
+      }
+      if (dateEnd) {
+        params.date_end = dateEnd;
+      }
+      params.search_type = 'date';
+    } else {
+    if (searchQuery.trim()) {
+      params.search = searchQuery.trim();
+    }
+      if (searchType !== 'all') {
+        params.search_type = searchType;
+      }
+    }
+    params.page = '1'; // 검색 시 첫 페이지
+    setSearchParams(params, { replace: true });
+  };
+
+  // 검색어 초기화 핸들러
+  const handleSearchClear = () => {
+    setSearchQuery("");
+    setSearchType('all');
+    setDateStart("");
+    setDateEnd("");
+    setCurrentPage(1); // 초기화 시 첫 페이지로 리셋
+    setSelectedLaw(null);
+    setSelectedLawData(null);
+    setCardNewsData(null);
+    const params: Record<string, string> = {};
+    const categoryStrings = Array.from(selectedCategories).map(cat => CATEGORY_MAP[cat]);
+    if (categoryStrings.length > 0) {
+      params.category = categoryStrings.join(',');
+    }
+    params.page = '1';
+    setSearchParams(params, { replace: true });
+  };
+
+  // Enter 키 핸들러
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      handleSearchSubmit();
+    }
   };
 
   // 법령 목록으로 돌아가기
   const handleBackToList = () => {
-    setSelectedLaw(null);
-    setSelectedLawData(null);
-    setCardNewsData(null);
-
+    // URL에서 law_id 제거하고 필터 파라미터만 유지
     const nextParams = new URLSearchParams();
     const categoryStrings = Array.from(selectedCategories).map(cat => CATEGORY_MAP[cat]);
     if (categoryStrings.length > 0) {
@@ -707,7 +781,15 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
       nextParams.set('page', currentPage.toString());
     }
 
-    setSearchParams(nextParams);
+    // URL 업데이트 (law_id는 자동으로 제거됨)
+    // URL이 변경되면 useEffect가 law_id가 없어진 것을 감지하고 상태를 초기화함
+    setSearchParams(nextParams, { replace: false }); // replace: false로 히스토리 유지
+    
+    // 상태 초기화 (URL 변경과 함께 즉시 반영)
+    setSelectedLaw(null);
+    setSelectedLawData(null);
+    setCardNewsData(null);
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -717,18 +799,18 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
 
     setLoadingCards(true);
     try {
-      const response = await getLawCards(selectedLaw.law_id);
+    const response = await getLawCards(selectedLaw.law_id);
 
-      if (response.data) {
-        setCardNewsData(response.data);
-        setCurrentCardIndex(0); // 카드뉴스 로드 시 첫 번째 카드로 초기화
-      } else {
-        console.error("카드뉴스 로드 실패:", response.error);
-      }
+    if (response.data) {
+      setCardNewsData(response.data);
+      setCurrentCardIndex(0); // 카드뉴스 로드 시 첫 번째 카드로 초기화
+    } else {
+      console.error("카드뉴스 로드 실패:", response.error);
+    }
     } catch (error) {
       console.error("카드뉴스 로드 중 오류:", error);
     } finally {
-      setLoadingCards(false);
+    setLoadingCards(false);
     }
   };
 
@@ -975,7 +1057,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                                   strong: ({ children, ...props }: { children?: React.ReactNode; [key: string]: unknown }) => {
                                     const termText = typeof children === 'string' ? children : 
                                       Array.isArray(children) ? children.filter(c => typeof c === 'string').join('') : '';
-                                      
+                                    
                                     if (parsedMarkdown && parsedMarkdown.termDictionary.length > 0 && termText) {
                                       const termDef = parsedMarkdown.termDictionary.find(t => t.term === termText);
                                       
@@ -1442,22 +1524,22 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                 </div>
               ) : (
                 <div className="relative flex-1 min-w-[250px]">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="text"
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="text"
                     placeholder={
                       searchType === 'all' ? '법령명, 내용, 소관 부처 검색...' :
                       searchType === 'title' ? '법령명을 입력하세요...' :
                       searchType === 'ministry' ? '소관 부처를 입력하세요...' :
                       '내용을 입력하세요...'
                     }
-                    value={searchQuery}
-                    onChange={(e) => handleSearchChange(e.target.value)}
-                    onKeyDown={handleSearchKeyDown}
-                    className="pl-9 pr-3 h-9"
-                    disabled={loading}
-                  />
-                </div>
+                  value={searchQuery}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  onKeyDown={handleSearchKeyDown}
+                  className="pl-9 pr-3 h-9"
+                  disabled={loading}
+                />
+              </div>
               )}
               <Button
                 size="sm"

@@ -39,14 +39,33 @@ interface ParsedMarkdown {
   termDictionary: Array<{ term: string; definition: string }>; // 쉬운 말 사전
 }
 
-// markdown 데이터 파싱 함수
+// markdown 데이터 파싱 함수 (최적화: 정규식 컴파일 및 조기 종료)
 const parseMarkdown = (markdown: string): ParsedMarkdown => {
+  if (!markdown || !markdown.trim()) {
+    return {
+      lawInfo: '',
+      easyExplanation: '',
+      compare: null,
+      termDictionary: []
+    };
+  }
+
   const lines = markdown.split('\n');
   const result: ParsedMarkdown = {
     lawInfo: '',
     easyExplanation: '',
     compare: null,
     termDictionary: []
+  };
+
+  // 정규식 패턴 미리 컴파일 (성능 최적화)
+  const sectionPatterns = {
+    easyExplanation: /^##\s+[0-9]+\./,
+    dictionary: /주요 용어 설명|📚/,
+    compare: /개정 전후 비교|🔄/,
+    compareBefore: /^###\s+개정\s+전/,
+    compareAfter: /^###\s+개정\s+후/,
+    termEntry: /^-\s+\*\*([^*]+)\*\*:\s*(.+)$/
   };
 
   let currentSection: 'lawInfo' | 'easyExplanation' | 'compare' | 'dictionary' | null = null;
@@ -56,11 +75,11 @@ const parseMarkdown = (markdown: string): ParsedMarkdown => {
   let dictionaryEntries: Array<{ term: string; definition: string }> = [];
   let currentCompareSection: 'before' | 'after' | null = null;
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+  // 최적화: for 루프 대신 for...of 사용
+  for (const line of lines) {
     
     // 법령정보 섹션 (제목과 법령 ID)
-    if (line.startsWith('# ') && !line.match(/^##\s+[0-9]+\./)) {
+    if (line.startsWith('# ') && !sectionPatterns.easyExplanation.test(line)) {
       currentSection = 'lawInfo';
       lawInfoLines.push(line);
       continue;
@@ -75,32 +94,32 @@ const parseMarkdown = (markdown: string): ParsedMarkdown => {
     }
     
     // 쉬운 말 설명 섹션 (## 1., ## 2. 등)
-    if (line.match(/^##\s+[0-9]+\./)) {
+    if (sectionPatterns.easyExplanation.test(line)) {
       currentSection = 'easyExplanation';
       easyExplanationLines.push(line);
       continue;
     }
     
     // 주요 용어 설명 섹션
-    if (line.includes('주요 용어 설명') || line.includes('📚')) {
+    if (sectionPatterns.dictionary.test(line)) {
       currentSection = 'dictionary';
       continue;
     }
     
     // 개정 전후 비교 섹션
-    if (line.includes('개정 전후 비교') || line.includes('🔄')) {
+    if (sectionPatterns.compare.test(line)) {
       currentSection = 'compare';
       compareSection = { before: [], after: [] };
       continue;
     }
     
     // 개정 전/후 서브섹션
-    if (line.match(/^###\s+개정\s+전/)) {
+    if (sectionPatterns.compareBefore.test(line)) {
       currentCompareSection = 'before';
       continue;
     }
     
-    if (line.match(/^###\s+개정\s+후/)) {
+    if (sectionPatterns.compareAfter.test(line)) {
       currentCompareSection = 'after';
       continue;
     }
@@ -112,11 +131,11 @@ const parseMarkdown = (markdown: string): ParsedMarkdown => {
       }
     } else if (currentSection === 'easyExplanation') {
       // 용어 사전이나 비교 섹션이 시작되면 쉬운 말 설명 섹션 종료
-      if (line.includes('주요 용어 설명') || line.includes('📚')) {
+      if (sectionPatterns.dictionary.test(line)) {
         // 용어 사전 섹션 시작
         currentSection = 'dictionary';
         continue;
-      } else if (line.includes('개정 전후 비교') || line.includes('🔄')) {
+      } else if (sectionPatterns.compare.test(line)) {
         // 개정 전후 비교 섹션 시작
         currentSection = 'compare';
         compareSection = { before: [], after: [] };
@@ -125,14 +144,14 @@ const parseMarkdown = (markdown: string): ParsedMarkdown => {
       easyExplanationLines.push(line);
     } else if (currentSection === 'dictionary') {
       // 용어 사전 파싱 (## 개정 전후 비교나 다른 섹션이 나오면 중단)
-      if (line.includes('개정 전후 비교') || line.includes('🔄')) {
+      if (sectionPatterns.compare.test(line)) {
         currentSection = 'compare';
         compareSection = { before: [], after: [] };
         continue;
       }
       
-      // - **용어**: 정의 형식 파싱
-      const termMatch = line.match(/^-\s+\*\*([^*]+)\*\*:\s*(.+)$/);
+      // - **용어**: 정의 형식 파싱 (정규식 미리 컴파일)
+      const termMatch = line.match(sectionPatterns.termEntry);
       if (termMatch) {
         dictionaryEntries.push({
           term: termMatch[1].trim(),
@@ -272,7 +291,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
   const [cardNewsData, setCardNewsData] = useState<LawCardsResponse | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [laws, setLaws] = useState<LawListItem[]>([]);
-  const [allLaws, setAllLaws] = useState<LawListItem[]>([]); // 필터링 전 전체 데이터
+  const [totalCount, setTotalCount] = useState<number>(0); // 백엔드에서 받은 전체 개수
   const [currentPage, setCurrentPage] = useState<number>(pageFromUrl);
   const [loading, setLoading] = useState(false);
   const [loadingCards, setLoadingCards] = useState(false);
@@ -283,8 +302,16 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
   
   const ITEMS_PER_PAGE = 20;
   
-  // markdown 파싱 결과
-  const parsedMarkdown = selectedLawData?.markdown ? parseMarkdown(selectedLawData.markdown) : null;
+  // markdown 파싱 결과 (메모이제이션으로 재계산 방지)
+  const parsedMarkdown = React.useMemo(() => {
+    if (!selectedLawData?.markdown) return null;
+    try {
+      return parseMarkdown(selectedLawData.markdown);
+    } catch (error) {
+      console.error("마크다운 파싱 오류:", error);
+      return null;
+    }
+  }, [selectedLawData?.markdown]);
 
   // 호버된 용어에 따라 쉬운말 사전 자동 스크롤
   useEffect(() => {
@@ -376,15 +403,13 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     }
   }, [searchParams, laws, selectedLaw]);
 
-  // 법령 목록 가져오기
+  // 법령 목록 가져오기 (필터나 페이지 변경 시)
+  // 단일 카테고리 또는 카테고리 미선택 시에만 실행 (여러 카테고리는 별도 useEffect에서 처리)
   useEffect(() => {
-    loadLaws();
-  }, [selectedCategories, searchQueryFromUrl, searchTypeFromUrl, dateStartFromUrl, dateEndFromUrl]);
-
-  // 필터링 및 페이징 적용
-  useEffect(() => {
-    applyFilteringAndPaging();
-  }, [allLaws, selectedCategories, searchQueryFromUrl, searchType, currentPage]);
+    if (selectedCategories.size <= 1) {
+      loadLaws();
+    }
+  }, [selectedCategories, searchQueryFromUrl, searchTypeFromUrl, dateStartFromUrl, dateEndFromUrl, currentPage]);
 
   const loadLaws = async () => {
     setLoading(true);
@@ -396,17 +421,18 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
         ? CATEGORY_MAP[Array.from(selectedCategories)[0]]
         : undefined;
 
-      // 페이징을 위해 충분한 데이터를 받아옴 (필터링 후에도 페이징 가능하도록)
+      // 서버 사이드 필터링 및 페이징 사용
       const activeSearchType = isValidSearchType(searchTypeFromUrl) ? searchTypeFromUrl : searchType;
       const dateStartParam = dateStartFromUrl ? dateStartFromUrl : undefined;
       const dateEndParam = dateEndFromUrl ? dateEndFromUrl : undefined;
       const searchParam = activeSearchType !== 'date' ? (searchQueryFromUrl.trim() || undefined) : undefined;
       const searchMode = activeSearchType !== 'all' ? activeSearchType : undefined;
 
+      // 서버 사이드 페이징: 현재 페이지와 페이지 크기 전달
       const response = await getLawList({
         category,
-        page: 1,
-        size: 600, // 충분한 데이터를 받아와서 클라이언트 사이드 필터링 및 페이징
+        page: currentPage,
+        size: ITEMS_PER_PAGE,
         search: searchParam,
         search_type: searchMode,
         date_start: activeSearchType === 'date' ? dateStartParam : undefined,
@@ -414,91 +440,83 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
       });
 
       if (response.data) {
-        // 백엔드에서 받은 전체 데이터를 저장 (필터링 전)
-        setAllLaws(response.data.items);
+        // 백엔드에서 이미 필터링 및 페이징된 데이터를 받음
+        setLaws(response.data.items);
+        // 전체 개수는 백엔드에서 받은 total 사용
+        setTotalCount(response.data.total);
       } else {
         console.error("법령 목록 로드 실패:", response.error);
+        setLaws([]);
+        setTotalCount(0);
       }
     } catch (err) {
       console.error("법령 목록 로드 중 오류:", err);
+      setLaws([]);
+      setTotalCount(0);
     } finally {
       setLoading(false);
     }
   };
 
-  // 필터링 및 페이징 적용 함수
-  const applyFilteringAndPaging = () => {
-    if (allLaws.length === 0) {
-      setLaws([]);
-      return;
-    }
-
-    // 백엔드에서 이미 필터링된 결과를 받으므로, 
-    // 추가 필터링이 필요한 경우(카테고리가 선택되지 않았을 때)만 처리
-    let filtered = [...allLaws];
-    
-    // 선택된 카테고리가 여러 개일 때만 클라이언트 사이드 필터링
-    // (백엔드는 단일 카테고리만 지원하므로)
+  // 여러 카테고리 선택 시 클라이언트 사이드 필터링 (백엔드는 단일 카테고리만 지원)
+  useEffect(() => {
     if (selectedCategories.size > 1) {
-      // 선택된 한글 카테고리를 영어 키로 변환
-      const categoryKeys = Array.from(selectedCategories).map(cat => CATEGORY_MAP[cat]);
-      filtered = filtered.filter(law => 
-        categoryKeys.includes(law.category)
-      );
-    }
-    
-    // 검색 타입별 필터링 (백엔드가 search_type을 지원하지 않는 경우 클라이언트 사이드 필터링)
-    // 백엔드가 search_type을 지원하면 이 부분은 불필요하지만, 이중 필터링으로 안전장치 역할
-    if (searchQueryFromUrl && searchType !== 'all') {
-      const searchLower = searchQueryFromUrl.toLowerCase();
-      filtered = filtered.filter(law => {
-        switch (searchType) {
-          case 'title':
-            return law.title?.toLowerCase().includes(searchLower) ?? false;
-          case 'ministry':
-            return law.responsible_ministry?.toLowerCase().includes(searchLower) ?? false;
-          case 'content':
-            return (
-              (law.short_desc?.toLowerCase().includes(searchLower) ?? false) ||
-              (law.one_line_summary?.toLowerCase().includes(searchLower) ?? false)
+      // 여러 카테고리 선택 시: 모든 데이터를 가져와서 클라이언트에서 필터링
+      // 이 경우는 성능 저하가 있지만, 백엔드가 다중 카테고리를 지원하지 않으므로 필요
+      const loadAllForMultiCategory = async () => {
+        setLoading(true);
+        try {
+          const activeSearchType = isValidSearchType(searchTypeFromUrl) ? searchTypeFromUrl : searchType;
+          const dateStartParam = dateStartFromUrl ? dateStartFromUrl : undefined;
+          const dateEndParam = dateEndFromUrl ? dateEndFromUrl : undefined;
+          const searchParam = activeSearchType !== 'date' ? (searchQueryFromUrl.trim() || undefined) : undefined;
+          const searchMode = activeSearchType !== 'all' ? activeSearchType : undefined;
+
+          // 여러 카테고리 선택 시에는 category 파라미터 없이 전체 조회
+          const response = await getLawList({
+            page: 1,
+            size: 1000, // 여러 카테고리 선택 시에만 큰 사이즈 사용
+            search: searchParam,
+            search_type: searchMode,
+            date_start: activeSearchType === 'date' ? dateStartParam : undefined,
+            date_end: activeSearchType === 'date' ? dateEndParam : undefined,
+          });
+
+          if (response.data) {
+            // 클라이언트 사이드 필터링
+            const categoryKeys = Array.from(selectedCategories).map(cat => CATEGORY_MAP[cat]);
+            let filtered = response.data.items.filter(law => 
+              categoryKeys.includes(law.category)
             );
-          case 'date':
-            // 통과일 필터링 (YYYY-MM-DD 형식으로 검색)
-            if (law.start_date) {
-              return law.start_date.includes(searchLower);
-            }
-            return false;
-          default:
-            return true;
+            
+            // 소관부처 기준 가나다 순 정렬
+            filtered.sort((a, b) => {
+              const ministryA = a.responsible_ministry || '';
+              const ministryB = b.responsible_ministry || '';
+              return ministryA.localeCompare(ministryB, 'ko');
+            });
+            
+            // 페이징 적용
+            const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+            const validPage = Math.max(1, Math.min(currentPage, totalPages || 1));
+            const startIndex = (validPage - 1) * ITEMS_PER_PAGE;
+            const endIndex = startIndex + ITEMS_PER_PAGE;
+            
+            setLaws(filtered.slice(startIndex, endIndex));
+            setTotalCount(filtered.length);
+          }
+        } catch (err) {
+          console.error("법령 목록 로드 중 오류:", err);
+          setLaws([]);
+          setTotalCount(0);
+        } finally {
+          setLoading(false);
         }
-      });
+      };
+      
+      loadAllForMultiCategory();
     }
-    
-    // 소관부처 기준 가나다 순 정렬
-    filtered.sort((a, b) => {
-      const ministryA = a.responsible_ministry || '';
-      const ministryB = b.responsible_ministry || '';
-      // 한국어 가나다 순 정렬
-      return ministryA.localeCompare(ministryB, 'ko');
-    });
-    
-    // 페이징 적용
-    const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
-    const validPage = Math.max(1, Math.min(currentPage, totalPages || 1));
-    
-    // 페이지가 유효 범위를 벗어나면 첫 페이지로 리셋
-    if (currentPage !== validPage && totalPages > 0) {
-      setCurrentPage(1);
-      const startIndex = 0;
-      const endIndex = ITEMS_PER_PAGE;
-      setLaws(filtered.slice(startIndex, endIndex));
-      return;
-    }
-    
-    const startIndex = (validPage - 1) * ITEMS_PER_PAGE;
-    const endIndex = startIndex + ITEMS_PER_PAGE;
-    setLaws(filtered.slice(startIndex, endIndex));
-  };
+  }, [selectedCategories, searchQueryFromUrl, searchTypeFromUrl, dateStartFromUrl, dateEndFromUrl, currentPage]);
 
   // 카테고리 토글 핸들러 (단일 선택만 가능)
   const handleCategoryToggle = (category: string) => {
@@ -637,15 +655,22 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     }
     setSearchParams(params);
 
-    const response = await getLawDetail(law.law_id);
+    try {
+      // 비동기로 데이터 로드 (UI 블로킹 방지)
+      const response = await getLawDetail(law.law_id);
 
-    if (response.data) {
-      setSelectedLawData(response.data);
-    } else {
-      console.error("법령 상세 로드 실패:", response.error);
+      if (response.data) {
+        setSelectedLawData(response.data);
+      } else {
+        console.error("법령 상세 로드 실패:", response.error);
+        setSelectedLawData(null);
+      }
+    } catch (error) {
+      console.error("법령 상세 로드 중 오류:", error);
+      setSelectedLawData(null);
+    } finally {
+      setIsAnalyzing(false);
     }
-
-    setIsAnalyzing(false);
   };
 
   // 법령 목록으로 돌아가기
@@ -691,16 +716,20 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     if (!selectedLaw || cardNewsData) return; // 이미 로드된 경우 스킵
 
     setLoadingCards(true);
-    const response = await getLawCards(selectedLaw.law_id);
+    try {
+      const response = await getLawCards(selectedLaw.law_id);
 
-    if (response.data) {
-      setCardNewsData(response.data);
-      setCurrentCardIndex(0); // 카드뉴스 로드 시 첫 번째 카드로 초기화
-    } else {
-      console.error("카드뉴스 로드 실패:", response.error);
+      if (response.data) {
+        setCardNewsData(response.data);
+        setCurrentCardIndex(0); // 카드뉴스 로드 시 첫 번째 카드로 초기화
+      } else {
+        console.error("카드뉴스 로드 실패:", response.error);
+      }
+    } catch (error) {
+      console.error("카드뉴스 로드 중 오류:", error);
+    } finally {
+      setLoadingCards(false);
     }
-
-    setLoadingCards(false);
   };
 
   // 카드뉴스 이전/다음 핸들러
@@ -751,49 +780,8 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
   // 현재 페이지에 표시할 법령 목록
   const filteredLaws = laws;
 
-  // 필터링된 전체 개수 계산 (페이징 전)
-  const getFilteredTotal = () => {
-    if (allLaws.length === 0) return 0;
-    
-    let filtered = [...allLaws];
-    
-    // 카테고리 필터링
-    if (selectedCategories.size > 1) {
-      const categoryKeys = Array.from(selectedCategories).map(cat => CATEGORY_MAP[cat]);
-      filtered = filtered.filter(law => categoryKeys.includes(law.category));
-    }
-    
-    // 검색 타입별 필터링
-    if (searchQueryFromUrl && searchType !== 'all') {
-      const searchLower = searchQueryFromUrl.toLowerCase();
-      filtered = filtered.filter(law => {
-        switch (searchType) {
-          case 'title':
-            return law.title?.toLowerCase().includes(searchLower) ?? false;
-          case 'ministry':
-            return law.responsible_ministry?.toLowerCase().includes(searchLower) ?? false;
-          case 'content':
-            return (
-              (law.short_desc?.toLowerCase().includes(searchLower) ?? false) ||
-              (law.one_line_summary?.toLowerCase().includes(searchLower) ?? false)
-            );
-          case 'date':
-            // 통과일 필터링 (YYYY-MM-DD 형식으로 검색)
-            if (law.start_date) {
-              return law.start_date.includes(searchLower);
-            }
-            return false;
-          default:
-            return true;
-        }
-      });
-    }
-    
-    return filtered.length;
-  };
-
-  const totalFiltered = getFilteredTotal();
-  const totalPages = Math.ceil(totalFiltered / ITEMS_PER_PAGE);
+  // 백엔드에서 받은 total 사용
+  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
   // 페이지 변경 핸들러
   const handlePageChange = (newPage: number) => {
@@ -938,7 +926,27 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                 <div className="grid lg:grid-cols-3 gap-6">
                   {/* 왼쪽: 쉬운 말 설명 */}
                   <div className="lg:col-span-2 space-y-4">
-                    {parsedMarkdown ? (
+                    {isAnalyzing ? (
+                      // 로딩 스켈레톤
+                      <div className="space-y-4">
+                        <div className="border-l-4 border-blue-500 pl-4 py-2">
+                          <div className="h-6 bg-muted rounded w-32 mb-2 animate-pulse" />
+                          <div className="space-y-2">
+                            <div className="h-4 bg-muted rounded w-full animate-pulse" />
+                            <div className="h-4 bg-muted rounded w-5/6 animate-pulse" />
+                            <div className="h-4 bg-muted rounded w-4/6 animate-pulse" />
+                          </div>
+                        </div>
+                        <div className="border-l-4 border-green-500 pl-4 py-2">
+                          <div className="h-6 bg-muted rounded w-40 mb-2 animate-pulse" />
+                          <div className="space-y-2">
+                            <div className="h-4 bg-muted rounded w-full animate-pulse" />
+                            <div className="h-4 bg-muted rounded w-full animate-pulse" />
+                            <div className="h-4 bg-muted rounded w-3/4 animate-pulse" />
+                          </div>
+                        </div>
+                      </div>
+                    ) : parsedMarkdown ? (
                       <>
                         {/* 법령정보 */}
                         {parsedMarkdown.lawInfo && (
@@ -1103,7 +1111,18 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                           ref={termListContainerRef}
                           className="h-[600px] overflow-y-auto pr-2"
                         >
-                          {parsedMarkdown && parsedMarkdown.termDictionary.length > 0 ? (
+                          {isAnalyzing ? (
+                            // 로딩 스켈레톤
+                            <div className="space-y-4 pr-2">
+                              {[1, 2, 3, 4, 5].map((i) => (
+                                <div key={i} className="p-3 rounded-lg border bg-muted/30 animate-pulse">
+                                  <div className="h-4 bg-muted rounded w-24 mb-2" />
+                                  <div className="h-3 bg-muted rounded w-full" />
+                                  <div className="h-3 bg-muted rounded w-5/6 mt-1" />
+                                </div>
+                              ))}
+                            </div>
+                          ) : parsedMarkdown && parsedMarkdown.termDictionary.length > 0 ? (
                             <div className="space-y-4 pr-2">
                               {parsedMarkdown.termDictionary.map((term, idx) => (
                                 <div
@@ -1356,7 +1375,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
           <div className="flex items-center gap-2 mb-4">
             <h2 className="text-xl font-semibold">현행법령</h2>
             <Badge variant="secondary">
-              {totalFiltered}건
+              {totalCount}건
             </Badge>
             {totalPages > 1 && (
               <span className="text-sm text-muted-foreground">

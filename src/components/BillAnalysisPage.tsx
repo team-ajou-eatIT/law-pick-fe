@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useSearchParams, useLocation } from "react-router-dom";
+import { useSearchParams, useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, Users, Calendar, ArrowRight, FileText, Target, BookOpen, ExternalLink, FileSignature, Clock, CheckCircle, Loader2, Search } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -112,6 +112,7 @@ const extractLawIdFromUrl = (url?: string | null): string | null => {
 export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
+  const navigate = useNavigate();
 
   // URL에서 초기값 가져오기
   const categoryFromUrl = searchParams.get("category");
@@ -579,12 +580,8 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
   const handleBillSelect = (bill: YouthProposalListItem) => {
     loadBillDetail(bill.bill_no);
 
-    // URL 업데이트 (category, search, bill_no 모두 포함)
-    const categoryStrings = Array.from(selectedCategories).map(cat => CATEGORY_TO_STRING[cat]);
+    // URL 업데이트 (bill_no만 포함, category 제거)
     const params: Record<string, string> = { bill_no: bill.bill_no };
-    if (categoryStrings.length > 0) {
-      params.category = categoryStrings.join(',');
-    }
     if (searchQuery.trim()) {
       params.search = searchQuery.trim();
     }
@@ -628,7 +625,7 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
       setDetailLoading(false);
     }
 
-    // URL 업데이트
+    // URL 업데이트 (bill_no만 포함, category 제거)
     const params: Record<string, string> = { bill_no: report.bill_no };
     if (searchQuery.trim()) {
       params.search = searchQuery.trim();
@@ -639,21 +636,8 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
   // 목록으로 돌아가기
   const handleBackToList = () => {
     setSelectedBill(null);
-
-    // URL 업데이트 (category, search 유지, bill_no 제거)
-    const params: Record<string, string> = {};
-    const categoryStrings = Array.from(selectedCategories).map(cat => CATEGORY_TO_STRING[cat]);
-    if (categoryStrings.length > 0) {
-      params.category = categoryStrings.join(',');
-    }
-    if (searchQuery.trim()) {
-      params.search = searchQuery.trim();
-    }
-    if (Object.keys(params).length > 0) {
-      setSearchParams(params);
-    } else {
-      setSearchParams({}, { replace: true });
-    }
+    // 브라우저의 뒤로가기와 동일하게 작동
+    navigate(-1);
   };
 
   const categories: YouthProposalCategory[] = [1, 2, 3, 4];
@@ -939,7 +923,7 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
                       <BookOpen className="h-5 w-5 text-indigo-600" />
                       법률 원문
                     </CardTitle>
-                    {resolvedLawId && (
+                    {resolvedLawId && selectedBill.has_law === 'Y' && (
                       <Button
                         size="sm"
                         variant="outline"

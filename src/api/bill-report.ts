@@ -15,15 +15,25 @@ import type {
 export async function getAllBillReports(
   page: number = 1,
   pageSize: number = 10,
-  category?: number
+  category?: number,
+  search?: string,
+  searchType?: string
 ) {
-  const params: Record<string, number> = {
+  const params: Record<string, string | number> = {
     page,
     page_size: pageSize,
   };
 
   if (category !== undefined) {
     params.category = category;
+  }
+
+  if (search !== undefined && search.trim()) {
+    params.search = search.trim();
+  }
+
+  if (searchType !== undefined && searchType !== 'all') {
+    params.search_type = searchType;
   }
 
   return get<BillReportAllResponse>(API_ENDPOINTS.billReportAll, params);

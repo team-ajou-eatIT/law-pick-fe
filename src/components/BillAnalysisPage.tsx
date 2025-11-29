@@ -8,6 +8,7 @@ import { Input } from "./ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { ScrollArea } from "./ui/scroll-area";
 import { Alert, AlertDescription } from "./ui/alert";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import {
   Pagination,
   PaginationContent,
@@ -109,6 +110,12 @@ const extractLawIdFromUrl = (url?: string | null): string | null => {
   }
 };
 
+// 검색 타입 정의
+const SEARCH_TYPE_VALUES = ['all', 'bill', 'law', 'ministry', 'prom_no'] as const;
+type SearchType = (typeof SEARCH_TYPE_VALUES)[number];
+const isValidSearchType = (value: string | null): value is SearchType =>
+  value !== null && SEARCH_TYPE_VALUES.includes(value as SearchType);
+
 export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
@@ -116,6 +123,7 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
   // URL에서 초기값 가져오기
   const categoryFromUrl = searchParams.get("category");
   const searchQueryFromUrl = searchParams.get("search") || "";
+  const searchTypeFromUrl = searchParams.get("search_type") || "all";
   const pageFromUrl = parseInt(searchParams.get("page") || "1", 10);
 
   // /analysis/all 경로인지 확인
@@ -124,6 +132,9 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
   // 선택된 카테고리를 Set으로 관리 (토글 방식)
   const [selectedCategories, setSelectedCategories] = useState<Set<YouthProposalCategory>>(new Set());
   const [searchQuery, setSearchQuery] = useState<string>(searchQueryFromUrl);
+  const [searchType, setSearchType] = useState<SearchType>(
+    isValidSearchType(searchTypeFromUrl) ? searchTypeFromUrl : 'all',
+  );
   const [currentPage, setCurrentPage] = useState<number>(pageFromUrl);
   const [totalPages, setTotalPages] = useState<number>(1);
   const [totalCount, setTotalCount] = useState<number>(0);
@@ -271,7 +282,18 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
       // 선택된 카테고리가 하나면 해당 카테고리만 조회, 아니면 전체 조회
       const category = selectedCategories.size === 1 ? Array.from(selectedCategories)[0] : undefined;
 
-      const response = await getAllBillReports(page, ITEMS_PER_PAGE, category);
+      // 검색 파라미터 구성
+      const activeSearchType = isValidSearchType(searchTypeFromUrl) ? searchTypeFromUrl : searchType;
+      const searchParam = searchQueryFromUrl.trim() || undefined;
+      const searchMode = activeSearchType !== 'all' ? activeSearchType : undefined;
+
+      const response = await getAllBillReports(
+        page,
+        ITEMS_PER_PAGE,
+        category,
+        searchParam,
+        searchMode
+      );
 
       if (response.error) {
         setError({
@@ -311,7 +333,7 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
     } finally {
       setLoading(false);
     }
-  }, [ITEMS_PER_PAGE, selectedCategories]);
+  }, [ITEMS_PER_PAGE, selectedCategories, searchQueryFromUrl, searchTypeFromUrl]);
 
   const loadYouthBills = useCallback(async () => {
     setLoading(true);
@@ -393,11 +415,16 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
       setSearchQuery(searchQueryFromUrl);
     }
 
+    // 검색 타입 설정
+    if (isValidSearchType(searchTypeFromUrl)) {
+      setSearchType(searchTypeFromUrl);
+    }
+
     // 페이지 설정
     if (pageFromUrl >= 1) {
       setCurrentPage(pageFromUrl);
     }
-  }, [categoryFromUrl, searchQueryFromUrl, pageFromUrl]);
+  }, [categoryFromUrl, searchQueryFromUrl, searchTypeFromUrl, pageFromUrl]);
 
   // URL에 bill_no가 있으면 해당 법안 자동 로드
   useEffect(() => {
@@ -422,7 +449,12 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
   // URL에서 검색어가 있을 때만 초기 검색 실행
   useEffect(() => {
     if (searchQueryFromUrl && searchQueryFromUrl.trim()) {
-      searchBillReportsData(searchQueryFromUrl.trim());
+      if (isAllPath) {
+        // /analysis/all 경로에서는 loadAllBillReports 사용
+        loadAllBillReports(currentPage);
+      } else {
+        searchBillReportsData(searchQueryFromUrl.trim());
+      }
     } else if (isAllPath) {
       // /analysis/all 경로에서는 페이지네이션된 전체 리포트 로드
       loadAllBillReports(currentPage);
@@ -431,7 +463,7 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
       loadYouthBills();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQueryFromUrl, isAllPath, currentPage, selectedCategories]);
+  }, [searchQueryFromUrl, searchTypeFromUrl, isAllPath, currentPage, selectedCategories]);
 
   // 청년 안건 상세 정보 로드
   const loadBillDetail = async (billNo: string) => {
@@ -482,7 +514,7 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
 
     setSelectedCategories(newCategories);
 
-    // URL 업데이트 (검색어 유지)
+    // URL 업데이트 (검색어 및 검색 타입 유지)
     const params: Record<string, string> = {};
     if (newCategories.size > 0) {
       const categoryStrings = Array.from(newCategories).map(cat => CATEGORY_TO_STRING[cat]);
@@ -490,6 +522,9 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
     }
     if (searchQuery.trim()) {
       params.search = searchQuery.trim();
+    }
+    if (searchType !== 'all') {
+      params.search_type = searchType;
     }
     params.page = '1'; // 첫 페이지로 리셋
     setSearchParams(params, { replace: true });
@@ -503,25 +538,41 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
   // 검색 실행 핸들러
   const handleSearchSubmit = () => {
     setSelectedBill(null);
+    setCurrentPage(1); // 검색 시 첫 페이지로 리셋
     const params: Record<string, string> = {};
     const categoryStrings = Array.from(selectedCategories).map(cat => CATEGORY_TO_STRING[cat]);
     if (categoryStrings.length > 0) {
       params.category = categoryStrings.join(',');
     }
+    
     if (searchQuery.trim()) {
       params.search = searchQuery.trim();
+      if (searchType !== 'all') {
+        params.search_type = searchType;
+      }
       // 검색어가 있으면 bill_report 검색 실행
-      searchBillReportsData(searchQuery.trim());
+      if (isAllPath) {
+        // /analysis/all 경로에서는 loadAllBillReports 사용
+        setSearchParams(params, { replace: true });
+      } else {
+        searchBillReportsData(searchQuery.trim());
+        setSearchParams(params, { replace: true });
+      }
     } else {
       // 검색어가 없으면 청년 안건 목록 로드
-      loadYouthBills();
+      if (isAllPath) {
+        setSearchParams(params, { replace: true });
+      } else {
+        loadYouthBills();
+        setSearchParams(params, { replace: true });
+      }
     }
-    setSearchParams(params, { replace: true });
   };
 
   // 검색어 초기화 핸들러
   const handleSearchClear = () => {
     setSearchQuery("");
+    setSearchType('all');
     setSelectedBill(null);
     setBillReportResults([]);
     setIsSearchMode(false);
@@ -553,6 +604,9 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
     }
     if (searchQuery.trim()) {
       params.search = searchQuery.trim();
+    }
+    if (searchType !== 'all') {
+      params.search_type = searchType;
     }
     params.page = newPage.toString();
     setSearchParams(params, { replace: true });
@@ -1106,12 +1160,37 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
             )}
             
             {/* 검색 입력 */}
-            <div className="flex items-center gap-2 flex-1 min-w-[200px] max-w-[400px]">
-              <div className="relative flex-1">
+            <div className="flex items-center gap-2 flex-wrap flex-1 min-w-[300px] max-w-[700px]">
+              {/* 검색 타입 선택 */}
+              <Select
+                value={searchType}
+                onValueChange={(value) => setSearchType(value as SearchType)}
+                disabled={loading}
+              >
+                <SelectTrigger className="w-[140px] h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">전체 검색</SelectItem>
+                  <SelectItem value="bill">법안명</SelectItem>
+                  <SelectItem value="law">법률명</SelectItem>
+                  <SelectItem value="ministry">소관 부처</SelectItem>
+                  <SelectItem value="prom_no">공포번호</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <div className="relative flex-1 min-w-[250px]">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="text"
-                  placeholder="법안명, 내용 검색..."
+                  placeholder={
+                    searchType === 'all' ? '법안명, 법률명, 소관 부처, 공포번호 검색...' :
+                    searchType === 'bill' ? '법안명을 입력하세요...' :
+                    searchType === 'law' ? '법률명을 입력하세요...' :
+                    searchType === 'ministry' ? '소관 부처를 입력하세요...' :
+                    searchType === 'prom_no' ? '공포번호를 입력하세요...' :
+                    '검색어를 입력하세요...'
+                  }
                   value={searchQuery}
                   onChange={(e) => handleSearchChange(e.target.value)}
                   onKeyDown={handleSearchKeyDown}

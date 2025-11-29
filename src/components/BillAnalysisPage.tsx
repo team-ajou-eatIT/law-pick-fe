@@ -403,23 +403,16 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
   useEffect(() => {
     const billNoFromUrl = searchParams.get("bill_no");
     if (billNoFromUrl) {
-      if (isSearchMode && billReportResults.length > 0) {
-        const report = billReportResults.find(r => r.bill_no === billNoFromUrl);
-        if (report && (!selectedBill || selectedBill.bill_no !== billNoFromUrl)) {
-          handleBillReportSelect(report);
-        }
-      } else if (!isSearchMode && youthBills.length > 0) {
-        const bill = youthBills.find(b => b.bill_no === billNoFromUrl);
-        if (bill && (!selectedBill || selectedBill.bill_no !== billNoFromUrl)) {
-          handleBillSelect(bill);
-        }
+      // URL에 bill_no가 있으면 상세 정보를 로드 (히스토리 추가 없이 데이터만 로드)
+      if (!selectedBill || selectedBill.bill_no !== billNoFromUrl) {
+        loadBillDetail(billNoFromUrl);
       }
     } else if (!billNoFromUrl && selectedBill) {
       // 브라우저 뒤로가기 등으로 bill_no가 사라진 경우: 상세 상태 초기화
       setSelectedBill(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, youthBills, billReportResults, isSearchMode, selectedBill]);
+  }, [searchParams, selectedBill]);
   useEffect(() => {
     if (selectedBill && !selectedBill.law_id) {
       fetchLawIdIfNeeded(selectedBill.bill_no);

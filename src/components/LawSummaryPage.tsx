@@ -387,37 +387,10 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     }
   }, [categoryFromUrl, searchQueryFromUrl, searchTypeFromUrl, dateStartFromUrl, dateEndFromUrl, pageFromUrl, isAllPath]);
 
-  // law_id만으로 직접 상세 정보 로드 (목록 없이) - useEffect보다 먼저 선언 필요
-  const handleLawSelectDirectly = useCallback(async (lawId: string) => {
+  // law_id로 상세 정보 로드 (URL 변경 없이 데이터만 로드)
+  const loadLawDetail = useCallback(async (lawId: string) => {
     setIsAnalyzing(true);
     setCardNewsData(null);
-    
-    // URL 업데이트 (기존 필터 파라미터 유지)
-    const params: Record<string, string> = { law_id: lawId };
-    const categoryStrings = Array.from(selectedCategories).map(cat => CATEGORY_MAP[cat]);
-    if (categoryStrings.length > 0) {
-      params.category = categoryStrings.join(',');
-    }
-    if (searchType === 'date') {
-      if (dateStart) {
-        params.date_start = dateStart;
-      }
-      if (dateEnd) {
-        params.date_end = dateEnd;
-      }
-      params.search_type = 'date';
-    } else {
-      if (searchQuery.trim()) {
-        params.search = searchQuery.trim();
-      }
-      if (searchType !== 'all') {
-        params.search_type = searchType;
-      }
-    }
-    if (currentPage > 1) {
-      params.page = currentPage.toString();
-    }
-    setSearchParams(params);
 
     try {
       const response = await getLawDetail(lawId);
@@ -433,7 +406,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
           responsible_ministry: response.data.responsible_ministry || undefined,
           one_line_summary: response.data.one_line_summary || null,
         };
-        
+
         setSelectedLaw(lawItem);
         setSelectedLawData(response.data);
       } else {
@@ -448,20 +421,15 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
     } finally {
       setIsAnalyzing(false);
     }
-  }, [selectedCategories, searchType, dateStart, dateEnd, searchQuery, currentPage, setSearchParams]);
+  }, []);
 
-  // 법령 상세 가져오기 (목록에서 선택) - useEffect보다 먼저 선언 필요
-  const handleLawSelect = useCallback(async (law: LawListItem) => {
-    setSelectedLaw(law);
-    setIsAnalyzing(true);
-    setCardNewsData(null); // 이전 카드뉴스 초기화
+  // 법령 선택 핸들러 (목록에서 클릭 시)
+  const handleLawSelect = useCallback((law: LawListItem) => {
+    // 먼저 데이터 로드
+    loadLawDetail(law.law_id);
 
-    // URL 업데이트 (category와 law_id 모두 포함)
-    const categoryStrings = Array.from(selectedCategories).map(cat => CATEGORY_MAP[cat]);
+    // URL 업데이트 (law_id만 포함, category 제거)
     const params: Record<string, string> = { law_id: law.law_id };
-    if (categoryStrings.length > 0) {
-      params.category = categoryStrings.join(',');
-    }
     if (searchType === 'date') {
       if (dateStart) {
         params.date_start = dateStart;
@@ -479,40 +447,16 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
       }
     }
     setSearchParams(params);
-
-    try {
-      // 비동기로 데이터 로드 (UI 블로킹 방지)
-      const response = await getLawDetail(law.law_id);
-
-      if (response.data) {
-        setSelectedLawData(response.data);
-      } else {
-        console.error("법령 상세 로드 실패:", response.error);
-        setSelectedLawData(null);
-      }
-    } catch (error) {
-      console.error("법령 상세 로드 중 오류:", error);
-      setSelectedLawData(null);
-    } finally {
-      setIsAnalyzing(false);
-    }
-  }, [selectedCategories, searchType, dateStart, dateEnd, searchQuery, setSearchParams]);
+  }, [loadLawDetail, searchType, dateStart, dateEnd, searchQuery, setSearchParams]);
 
   // URL에 law_id가 있으면 해당 법령 자동 로드
   useEffect(() => {
     const lawIdFromUrl = searchParams.get("law_id");
-    
+
     if (lawIdFromUrl) {
-      // law_id가 있으면 상세 페이지 표시 (목록에 있으면 바로 선택, 없으면 직접 로드)
-      if (laws.length > 0) {
-        // 목록에 있으면 바로 선택
-      const law = laws.find(l => l.law_id === lawIdFromUrl);
-      if (law && law.law_id !== selectedLaw?.law_id) {
-        handleLawSelect(law);
-      }
-      } else if (!selectedLaw || selectedLaw.law_id !== lawIdFromUrl) {
-        // 목록에 없으면 law_id만으로 직접 상세 정보 로드
-        handleLawSelectDirectly(lawIdFromUrl);
+      // URL에 law_id가 있으면 상세 정보를 로드 (히스토리 추가 없이 데이터만 로드)
+      if (!selectedLaw || selectedLaw.law_id !== lawIdFromUrl) {
+        loadLawDetail(lawIdFromUrl);
       }
     } else if (!lawIdFromUrl && selectedLaw) {
       // 브라우저 뒤로가기 등으로 law_id가 사라진 경우: 상세 상태 초기화
@@ -520,7 +464,8 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
       setSelectedLawData(null);
       setCardNewsData(null);
     }
-  }, [searchParams, laws, selectedLaw, handleLawSelectDirectly, handleLawSelect]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, selectedLaw]);
 
   // 법령 목록 가져오기 (필터나 페이지 변경 시)
   // law_id가 URL에 없을 때만 목록 로드 (상세 페이지에서는 목록 불필요)
@@ -752,45 +697,11 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
 
   // 법령 목록으로 돌아가기
   const handleBackToList = () => {
-    // URL에서 law_id 제거하고 필터 파라미터만 유지
-    const nextParams = new URLSearchParams();
-    const categoryStrings = Array.from(selectedCategories).map(cat => CATEGORY_MAP[cat]);
-    if (categoryStrings.length > 0) {
-      nextParams.set('category', categoryStrings.join(','));
-    }
-
-    if (searchType === 'date') {
-      if (dateStart) {
-        nextParams.set('date_start', dateStart);
-      }
-      if (dateEnd) {
-        nextParams.set('date_end', dateEnd);
-      }
-      nextParams.set('search_type', 'date');
-    } else {
-      const trimmedSearch = searchQuery.trim();
-      if (trimmedSearch) {
-        nextParams.set('search', trimmedSearch);
-      }
-      if (searchType !== 'all') {
-        nextParams.set('search_type', searchType);
-      }
-    }
-
-    if (currentPage > 1) {
-      nextParams.set('page', currentPage.toString());
-    }
-
-    // URL 업데이트 (law_id는 자동으로 제거됨)
-    // URL이 변경되면 useEffect가 law_id가 없어진 것을 감지하고 상태를 초기화함
-    setSearchParams(nextParams, { replace: false }); // replace: false로 히스토리 유지
-    
-    // 상태 초기화 (URL 변경과 함께 즉시 반영)
-    setSelectedLaw(null);
-    setSelectedLawData(null);
-    setCardNewsData(null);
-
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // 현재 URL에서 law_id만 제거하여 목록으로 복귀
+    // 이렇게 하면 크롬 뒤로가기와 동일하게 URL이 명확히 변경됨
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('law_id');
+    setSearchParams(newParams);
   };
 
   // 카드뉴스 탭 클릭 시 로드

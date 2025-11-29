@@ -1255,8 +1255,9 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
               <div className="flex items-center justify-end">
                 <Select
                   value={orderBy}
-                  onValueChange={(value) => {
-                    setOrderBy(value as OrderBy);
+                  onValueChange={async (value) => {
+                    const newOrderBy = value as OrderBy;
+                    setOrderBy(newOrderBy);
                     setCurrentPage(1);
                     const params: Record<string, string> = {};
                     const categoryStrings = Array.from(selectedCategories).map(cat => CATEGORY_TO_STRING[cat]);
@@ -1269,19 +1270,53 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
                     if (searchType !== 'all') {
                       params.search_type = searchType;
                     }
-                    params.order_by = value;
+                    params.order_by = newOrderBy;
                     params.page = '1';
                     setSearchParams(params, { replace: true });
+                    // 정렬 기준 변경 시 새로운 값으로 데이터 재로드
+                    if (isAllPath) {
+                      setLoading(true);
+                      setError(null);
+                      setIsSearchMode(false);
+                      try {
+                        const category = selectedCategories.size === 1 ? Array.from(selectedCategories)[0] : undefined;
+                        const searchParam = searchQuery.trim() || undefined;
+                        const searchMode = searchType !== 'all' ? searchType : undefined;
+                        const response = await getAllBillReports(
+                          1,
+                          ITEMS_PER_PAGE,
+                          category,
+                          searchParam,
+                          searchMode,
+                          newOrderBy
+                        );
+                        if (response.error) {
+                          setError(response.error);
+                          setBillReports([]);
+                          setTotalPages(1);
+                        } else if (response.data) {
+                          setBillReports(response.data.items || []);
+                          setTotalPages(response.data.total_pages || 1);
+                        }
+                      } catch (err) {
+                        setError({
+                          message: '데이터를 불러오는 중 오류가 발생했습니다.',
+                          detail: err instanceof Error ? err.message : undefined,
+                        });
+                      } finally {
+                        setLoading(false);
+                      }
+                    }
                   }}
                   disabled={loading}
                 >
-                  <SelectTrigger 
-                    size="sm"
-                    className="w-[160px] min-w-[160px] shrink-0"
-                    style={{ width: '160px', minWidth: '160px', flexShrink: 0 }}
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
+                <SelectTrigger 
+                  size="sm"
+                  className="w-[160px] min-w-[160px] shrink-0 bg-white"
+                  style={{ width: '160px', minWidth: '160px', flexShrink: 0 }}
+                >
+                  <SelectValue />
+                </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="enforcement_date">시행일</SelectItem>
                     <SelectItem value="prom_dt">공포일</SelectItem>

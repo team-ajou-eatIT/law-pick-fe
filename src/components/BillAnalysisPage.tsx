@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useSearchParams, useLocation, useNavigate } from "react-router-dom";
+import { useSearchParams, useLocation } from "react-router-dom";
 import { ArrowLeft, Users, Calendar, ArrowRight, FileText, Target, BookOpen, ExternalLink, FileSignature, Clock, CheckCircle, Loader2, Search } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -112,7 +112,6 @@ const extractLawIdFromUrl = (url?: string | null): string | null => {
 export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
-  const navigate = useNavigate();
 
   // URL에서 초기값 가져오기
   const categoryFromUrl = searchParams.get("category");
@@ -635,9 +634,11 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
 
   // 목록으로 돌아가기
   const handleBackToList = () => {
-    setSelectedBill(null);
-    // 브라우저의 뒤로가기와 동일하게 작동
-    navigate(-1);
+    // 현재 URL에서 bill_no만 제거하여 목록으로 복귀
+    // 이렇게 하면 크롬 뒤로가기와 동일하게 URL이 명확히 변경됨
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('bill_no');
+    setSearchParams(newParams);
   };
 
   const categories: YouthProposalCategory[] = [1, 2, 3, 4];

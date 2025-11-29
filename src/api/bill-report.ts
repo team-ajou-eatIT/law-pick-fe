@@ -17,7 +17,8 @@ export async function getAllBillReports(
   pageSize: number = 10,
   category?: number,
   search?: string,
-  searchType?: string
+  searchType?: string,
+  orderBy?: string
 ) {
   const params: Record<string, string | number> = {
     page,
@@ -34,6 +35,10 @@ export async function getAllBillReports(
 
   if (searchType !== undefined && searchType !== 'all') {
     params.search_type = searchType;
+  }
+
+  if (orderBy !== undefined) {
+    params.order_by = orderBy;
   }
 
   return get<BillReportAllResponse>(API_ENDPOINTS.billReportAll, params);

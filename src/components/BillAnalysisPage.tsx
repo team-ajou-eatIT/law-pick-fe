@@ -116,6 +116,19 @@ type SearchType = (typeof SEARCH_TYPE_VALUES)[number];
 const isValidSearchType = (value: string | null): value is SearchType =>
   value !== null && SEARCH_TYPE_VALUES.includes(value as SearchType);
 
+// 정렬 기준 정의
+const ORDER_BY_VALUES = ['enforcement_date', 'prom_dt', 'rgs_rsln_dt', 'bill_nm'] as const;
+type OrderBy = (typeof ORDER_BY_VALUES)[number];
+const isValidOrderBy = (value: string | null): value is OrderBy =>
+  value !== null && ORDER_BY_VALUES.includes(value as OrderBy);
+
+const ORDER_BY_LABELS: Record<OrderBy, string> = {
+  enforcement_date: '시행일',
+  prom_dt: '공포일',
+  rgs_rsln_dt: '본회의 의결일',
+  bill_nm: '법안명',
+};
+
 export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
@@ -124,6 +137,7 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
   const categoryFromUrl = searchParams.get("category");
   const searchQueryFromUrl = searchParams.get("search") || "";
   const searchTypeFromUrl = searchParams.get("search_type") || "all";
+  const orderByFromUrl = searchParams.get("order_by") || "enforcement_date";
   const pageFromUrl = parseInt(searchParams.get("page") || "1", 10);
 
   // /analysis/all 경로인지 확인
@@ -134,6 +148,9 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
   const [searchQuery, setSearchQuery] = useState<string>(searchQueryFromUrl);
   const [searchType, setSearchType] = useState<SearchType>(
     isValidSearchType(searchTypeFromUrl) ? searchTypeFromUrl : 'all',
+  );
+  const [orderBy, setOrderBy] = useState<OrderBy>(
+    isValidOrderBy(orderByFromUrl) ? orderByFromUrl : 'enforcement_date',
   );
   const [currentPage, setCurrentPage] = useState<number>(pageFromUrl);
   const [totalPages, setTotalPages] = useState<number>(1);
@@ -284,6 +301,7 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
 
       // 검색 파라미터 구성
       const activeSearchType = isValidSearchType(searchTypeFromUrl) ? searchTypeFromUrl : searchType;
+      const activeOrderBy = isValidOrderBy(orderByFromUrl) ? orderByFromUrl : orderBy;
       const searchParam = searchQueryFromUrl.trim() || undefined;
       const searchMode = activeSearchType !== 'all' ? activeSearchType : undefined;
 
@@ -292,7 +310,8 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
         ITEMS_PER_PAGE,
         category,
         searchParam,
-        searchMode
+        searchMode,
+        activeOrderBy
       );
 
       if (response.error) {
@@ -333,7 +352,7 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
     } finally {
       setLoading(false);
     }
-  }, [ITEMS_PER_PAGE, selectedCategories, searchQueryFromUrl, searchTypeFromUrl]);
+  }, [ITEMS_PER_PAGE, selectedCategories, searchQueryFromUrl, searchTypeFromUrl, orderByFromUrl]);
 
   const loadYouthBills = useCallback(async () => {
     setLoading(true);
@@ -420,11 +439,16 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
       setSearchType(searchTypeFromUrl);
     }
 
+    // 정렬 기준 설정
+    if (isValidOrderBy(orderByFromUrl)) {
+      setOrderBy(orderByFromUrl);
+    }
+
     // 페이지 설정
     if (pageFromUrl >= 1) {
       setCurrentPage(pageFromUrl);
     }
-  }, [categoryFromUrl, searchQueryFromUrl, searchTypeFromUrl, pageFromUrl]);
+  }, [categoryFromUrl, searchQueryFromUrl, searchTypeFromUrl, orderByFromUrl, pageFromUrl]);
 
   // URL에 bill_no가 있으면 해당 법안 자동 로드
   useEffect(() => {
@@ -463,7 +487,7 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
       loadYouthBills();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQueryFromUrl, searchTypeFromUrl, isAllPath, currentPage, selectedCategories]);
+  }, [searchQueryFromUrl, searchTypeFromUrl, orderByFromUrl, isAllPath, currentPage, selectedCategories]);
 
   // 청년 안건 상세 정보 로드
   const loadBillDetail = async (billNo: string) => {
@@ -526,6 +550,9 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
     if (searchType !== 'all') {
       params.search_type = searchType;
     }
+    if (orderBy !== 'enforcement_date') {
+      params.order_by = orderBy;
+    }
     params.page = '1'; // 첫 페이지로 리셋
     setSearchParams(params, { replace: true });
   };
@@ -550,6 +577,9 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
       if (searchType !== 'all') {
         params.search_type = searchType;
       }
+      if (orderBy !== 'enforcement_date') {
+        params.order_by = orderBy;
+      }
       // 검색어가 있으면 bill_report 검색 실행
       if (isAllPath) {
         // /analysis/all 경로에서는 loadAllBillReports 사용
@@ -560,6 +590,9 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
       }
     } else {
       // 검색어가 없으면 청년 안건 목록 로드
+      if (orderBy !== 'enforcement_date') {
+        params.order_by = orderBy;
+      }
       if (isAllPath) {
         setSearchParams(params, { replace: true });
       } else {
@@ -607,6 +640,9 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
     }
     if (searchType !== 'all') {
       params.search_type = searchType;
+    }
+    if (orderBy !== 'enforcement_date') {
+      params.order_by = orderBy;
     }
     params.page = newPage.toString();
     setSearchParams(params, { replace: true });
@@ -1141,72 +1177,120 @@ export function BillAnalysisPage({ onBack }: BillAnalysisPageProps) {
               </span>
             )}
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            {/* 카테고리 필터 (검색 모드가 아닐 때만 표시) */}
-            {!isSearchMode && (
-              <div className="flex flex-wrap gap-2">
-                {categories.map((category) => (
-                  <Button
-                    key={category}
-                    variant={selectedCategories.has(category) ? "default" : "outline"}
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-3">
+              {/* 카테고리 필터 (검색 모드가 아닐 때만 표시) */}
+              {!isSearchMode && (
+                <div className="flex flex-wrap gap-2">
+                  {categories.map((category) => (
+                    <Button
+                      key={category}
+                      variant={selectedCategories.has(category) ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handleCategoryToggle(category)}
+                      disabled={loading}
+                    >
+                      {CATEGORY_KOREAN_NAMES[category]}
+                    </Button>
+                  ))}
+                </div>
+              )}
+              
+              {/* 검색 입력 */}
+              <div className="flex items-center gap-2 flex-wrap flex-1 min-w-[300px] max-w-[700px]">
+                {/* 검색 타입 선택 */}
+                <Select
+                  value={searchType}
+                  onValueChange={(value) => setSearchType(value as SearchType)}
+                  disabled={loading}
+                >
+                  <SelectTrigger 
                     size="sm"
-                    onClick={() => handleCategoryToggle(category)}
-                    disabled={loading}
+                    className="w-[120px] min-w-[120px] shrink-0"
+                    style={{ width: '120px', minWidth: '120px', flexShrink: 0 }}
                   >
-                    {CATEGORY_KOREAN_NAMES[category]}
-                  </Button>
-                ))}
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">전체 검색</SelectItem>
+                    <SelectItem value="bill">법안명</SelectItem>
+                    <SelectItem value="law">법률명</SelectItem>
+                    <SelectItem value="ministry">소관 부처</SelectItem>
+                    <SelectItem value="prom_no">공포번호</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <div className="relative flex-1 min-w-[250px]">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder={
+                      searchType === 'all' ? '법안명, 법률명, 소관 부처, 공포번호 검색...' :
+                      searchType === 'bill' ? '법안명을 입력하세요...' :
+                      searchType === 'law' ? '법률명을 입력하세요...' :
+                      searchType === 'ministry' ? '소관 부처를 입력하세요...' :
+                      searchType === 'prom_no' ? '공포번호를 입력하세요...' :
+                      '검색어를 입력하세요...'
+                    }
+                    value={searchQuery}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    onKeyDown={handleSearchKeyDown}
+                    className="pl-9 pr-3 h-9"
+                    disabled={loading}
+                  />
+                </div>
+                <Button
+                  size="sm"
+                  onClick={handleSearchSubmit}
+                  disabled={loading}
+                  className="h-9 shrink-0"
+                >
+                  검색
+                </Button>
+              </div>
+            </div>
+            
+            {/* 정렬 기준 선택 (검색 버튼 하단) */}
+            {isAllPath && (
+              <div className="flex items-center justify-end">
+                <Select
+                  value={orderBy}
+                  onValueChange={(value) => {
+                    setOrderBy(value as OrderBy);
+                    setCurrentPage(1);
+                    const params: Record<string, string> = {};
+                    const categoryStrings = Array.from(selectedCategories).map(cat => CATEGORY_TO_STRING[cat]);
+                    if (categoryStrings.length > 0) {
+                      params.category = categoryStrings.join(',');
+                    }
+                    if (searchQuery.trim()) {
+                      params.search = searchQuery.trim();
+                    }
+                    if (searchType !== 'all') {
+                      params.search_type = searchType;
+                    }
+                    params.order_by = value;
+                    params.page = '1';
+                    setSearchParams(params, { replace: true });
+                  }}
+                  disabled={loading}
+                >
+                  <SelectTrigger 
+                    size="sm"
+                    className="w-[160px] min-w-[160px] shrink-0"
+                    style={{ width: '160px', minWidth: '160px', flexShrink: 0 }}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="enforcement_date">시행일</SelectItem>
+                    <SelectItem value="prom_dt">공포일</SelectItem>
+                    <SelectItem value="rgs_rsln_dt">본회의 의결일</SelectItem>
+                    <SelectItem value="bill_nm">법안명</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             )}
-            
-            {/* 검색 입력 */}
-            <div className="flex items-center gap-2 flex-wrap flex-1 min-w-[300px] max-w-[700px]">
-              {/* 검색 타입 선택 */}
-              <Select
-                value={searchType}
-                onValueChange={(value) => setSearchType(value as SearchType)}
-                disabled={loading}
-              >
-                <SelectTrigger className="w-[140px] h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">전체 검색</SelectItem>
-                  <SelectItem value="bill">법안명</SelectItem>
-                  <SelectItem value="law">법률명</SelectItem>
-                  <SelectItem value="ministry">소관 부처</SelectItem>
-                  <SelectItem value="prom_no">공포번호</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <div className="relative flex-1 min-w-[250px]">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder={
-                    searchType === 'all' ? '법안명, 법률명, 소관 부처, 공포번호 검색...' :
-                    searchType === 'bill' ? '법안명을 입력하세요...' :
-                    searchType === 'law' ? '법률명을 입력하세요...' :
-                    searchType === 'ministry' ? '소관 부처를 입력하세요...' :
-                    searchType === 'prom_no' ? '공포번호를 입력하세요...' :
-                    '검색어를 입력하세요...'
-                  }
-                  value={searchQuery}
-                  onChange={(e) => handleSearchChange(e.target.value)}
-                  onKeyDown={handleSearchKeyDown}
-                  className="pl-9 pr-3 h-9"
-                  disabled={loading}
-                />
-              </div>
-              <Button
-                size="sm"
-                onClick={handleSearchSubmit}
-                disabled={loading}
-                className="h-9"
-              >
-                검색
-              </Button>
-            </div>
           </div>
         </div>
 

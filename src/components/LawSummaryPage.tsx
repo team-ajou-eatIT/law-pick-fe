@@ -1400,7 +1400,11 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                 onValueChange={(value) => setSearchType(value as SearchType)}
                 disabled={loading}
               >
-                <SelectTrigger className="w-[140px] h-9">
+                <SelectTrigger 
+                  size="sm"
+                  className="w-[120px] min-w-[120px] shrink-0"
+                  style={{ width: '120px', minWidth: '120px', flexShrink: 0 }}
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1456,7 +1460,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                 size="sm"
                 onClick={handleSearchSubmit}
                 disabled={loading}
-                className="h-9"
+                className="h-9 shrink-0"
               >
                 검색
               </Button>

@@ -260,8 +260,41 @@ const getCategoryLabel = (value?: string | null) => {
 const categories = ["부동산", "금융", "취업", "교육"];
 const SEARCH_TYPE_VALUES = ['all', 'title', 'ministry', 'content', 'date'] as const;
 type SearchType = (typeof SEARCH_TYPE_VALUES)[number];
-const isValidSearchType = (value: string | null): value is SearchType =>
+const isValidSearchType = (value: string | null): value is SearchType => 
   value !== null && SEARCH_TYPE_VALUES.includes(value as SearchType);
+
+// 날짜를 YYYY-MM-DD 형식으로 표준화하는 함수
+const formatDateToYYYYMMDD = (dateString: string | null | undefined): string => {
+  if (!dateString || !dateString.trim()) {
+    return '-';
+  }
+
+  // 이미 YYYY-MM-DD 형식인 경우
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    return dateString;
+  }
+
+  // 숫자만 추출 (YYYYMMDD 형식)
+  const digitsOnly = dateString.replace(/[^0-9]/g, '');
+  
+  if (digitsOnly.length >= 8) {
+    // YYYYMMDD 형식으로 변환
+    const year = digitsOnly.substring(0, 4);
+    const month = digitsOnly.substring(4, 6);
+    const day = digitsOnly.substring(6, 8);
+    
+    // 유효성 검사
+    const monthNum = parseInt(month, 10);
+    const dayNum = parseInt(day, 10);
+    
+    if (monthNum >= 1 && monthNum <= 12 && dayNum >= 1 && dayNum <= 31) {
+      return `${year}-${month}-${day}`;
+    }
+  }
+  
+  // 변환 실패 시 원본 반환 (또는 '-' 반환)
+  return dateString;
+};
 
 export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -427,7 +460,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
         const lawItem: LawListItem = {
           law_id: lawId,
           title: response.data.title || '법령명 없음',
-          start_date: response.data.start_date || '',
+          start_date: formatDateToYYYYMMDD(response.data.start_date) || '',
           short_desc: '',
           category: '',
           responsible_ministry: response.data.responsible_ministry || undefined,
@@ -968,7 +1001,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                   <div>
                     <span className="text-muted-foreground">통과일:</span>
                     <p className="font-medium">
-                      {selectedLawData.start_date || selectedLaw.start_date || '-'}
+                      {formatDateToYYYYMMDD(selectedLawData.start_date || selectedLaw.start_date)}
                     </p>
                   </div>
                   <div>
@@ -1589,7 +1622,7 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
                         {law.start_date && (
                           <div className="flex items-center gap-1">
                             <Calendar className="h-4 w-4" />
-                            {law.start_date}
+                            {formatDateToYYYYMMDD(law.start_date)}
                           </div>
                         )}
                         {law.responsible_ministry && (

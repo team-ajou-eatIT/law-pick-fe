@@ -340,7 +340,7 @@ function MainPage() {
       {/* Main Content */}
       <div className="relative z-10">
         {/* Hero Section */}
-        <section className="min-h-screen pt-32 pb-12 px-4">
+        <section className="pt-32 pb-12 px-4">
           <div className="container mx-auto text-center max-w-5xl">
             <h1 className="mb-4">
               <span
@@ -727,7 +727,6 @@ function MainPage() {
             </div>
           </div>
         </section>
-
 
 
 

@@ -50,7 +50,8 @@ export interface YouthProposalDetail {
   bill_no: string;
   is_youth_proposal: YouthProposalCategory;
   law_id: string | null;               // 법령 ID (법률 쉽게 보기 링크용)
-  
+  has_law: string | null;              // 법률 쉽게 보기 가능 여부 (Y/N)
+
   // bill_detail 정보
   bill_nm: string | null;
   rgs_rsln_dt: string | null;         // 통과일
@@ -60,7 +61,7 @@ export interface YouthProposalDetail {
   prom_dt: string | null;             // 공포일자
   prom_no: string | null;             // 공포번호
   link_url: string | null;            // 의안정보시스템 링크
-  
+
   // bill_report 정보
   bill_summary: string | null;        // 의안요약 1줄
   major_changes: string | null;       // 주요 변경점 (세미콜론 구분)
@@ -75,7 +76,7 @@ export interface YouthProposalDetail {
   enforcement_details: string | null; // 시행 세부사항
   law_text: string | null;            // 법률 원문
   law_text_url: string | null;        // 법률 원문 URL
-  
+
   // bill_doc 정보
   plenary_session_url: string | null;   // 본회의 회의록 URL
   committee_urls: string[] | null;      // 소관위 회의록 URL 목록

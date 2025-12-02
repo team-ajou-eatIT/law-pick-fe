@@ -215,7 +215,7 @@ export function LawChatWidget({ lawId, lawTitle }: LawChatWidgetProps) {
           <button
             type="button"
             onClick={() => setIsOpen(true)}
-            aria-label="법령 챗봇 열기"
+            aria-label=""
             className="relative flex items-center justify-center"
             style={{
               width: "56px",

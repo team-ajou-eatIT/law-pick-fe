@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { MessageCircle, X, Send, Bot, User, FileText, Globe, Link2, ExternalLink } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -193,7 +194,12 @@ export function LawChatWidget({ lawId, lawTitle }: LawChatWidgetProps) {
     }
   };
 
-  return (
+  // 브라우저 환경에서만 렌더 (포탈 사용)
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  return createPortal(
     <>
       {/* 플로팅 챗봇 버튼 (우측 하단 작은 아이콘 버튼) */}
       <div className="fixed bottom-5 right-5 z-50">
@@ -391,6 +397,7 @@ export function LawChatWidget({ lawId, lawTitle }: LawChatWidgetProps) {
           </Card>
         </div>
       )}
-    </>
+    </>,
+    document.body
   );
 }

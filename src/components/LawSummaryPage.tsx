@@ -1369,6 +1369,14 @@ export function LawSummaryPage({ onBack }: LawSummaryPageProps) {
             </Card>
           )}
         </div>
+
+        {/* 이 법령 전용 플로팅 챗봇 (우측 하단) */}
+      {selectedLawData && (
+        <LawChatWidget
+          lawId={selectedLaw.law_id}
+          lawTitle={selectedLawData.title || selectedLaw.title || "법령"}
+        />
+      )}
       </div>
     );
   }

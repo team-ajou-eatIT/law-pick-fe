@@ -201,25 +201,64 @@ export function LawChatWidget({ lawId, lawTitle }: LawChatWidgetProps) {
 
   return createPortal(
     <>
-      {/* 플로팅 챗봇 버튼 (우측 하단 작은 아이콘 버튼) */}
-      <div className="fixed bottom-5 right-5 z-50">
+      {/* 플로팅 챗봇 버튼 (페이지 우측 하단 고정) */}
+      <div
+        className="lawpick-chat-button-container"
+        style={{
+          position: "fixed",
+          right: "24px",
+          bottom: "24px",
+          zIndex: 9999,
+        }}
+      >
         {!isOpen && (
           <button
             type="button"
             onClick={() => setIsOpen(true)}
             aria-label="법령 챗봇 열기"
-            className="relative flex items-center justify-center w-14 h-14 rounded-full shadow-xl bg-gradient-to-r from-blue-600 to-indigo-500 text-white transition-all duration-200 hover:scale-105 hover:shadow-2xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="relative flex items-center justify-center"
+            style={{
+              width: "56px",
+              height: "56px",
+              borderRadius: "9999px",
+              boxShadow: "0 10px 25px rgba(15, 23, 42, 0.25)",
+              background: "linear-gradient(135deg, #2563eb, #4f46e5)",
+              color: "#ffffff",
+              cursor: "pointer",
+              border: "none",
+            }}
           >
             <span className="sr-only">법령 챗봇 열기</span>
             <MessageCircle className="h-6 w-6" />
-            <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 ring-2 ring-white animate-pulse" />
+            <span
+              className="animate-pulse"
+              style={{
+                position: "absolute",
+                top: "-2px",
+                right: "-2px",
+                width: "12px",
+                height: "12px",
+                borderRadius: "9999px",
+                backgroundColor: "#22c55e",
+                boxShadow: "0 0 0 2px #ffffff",
+              }}
+            />
           </button>
         )}
       </div>
 
-      {/* 챗봇 패널 (우측 하단 작은 창) */}
+      {/* 챗봇 패널 (페이지 우측 하단 고정 작은 창) */}
       {isOpen && (
-        <div className="fixed bottom-5 right-5 z-50 w-full max-w-xs sm:max-w-sm">
+        <div
+          className="lawpick-chat-panel"
+          style={{
+            position: "fixed",
+            right: "24px",
+            bottom: "24px",
+            zIndex: 9998,
+            width: "min(360px, 100vw - 32px)",
+          }}
+        >
           <Card className="shadow-2xl border border-blue-100 flex flex-col max-h-[70vh] rounded-2xl overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b bg-blue-50">
               <div className="flex items-center gap-2">

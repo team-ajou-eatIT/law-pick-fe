@@ -215,7 +215,7 @@ export function LawChatWidget({ lawId, lawTitle }: LawChatWidgetProps) {
           <button
             type="button"
             onClick={() => setIsOpen(true)}
-            aria-label=""
+            aria-label="법령 챗봇 열기"
             className="relative flex items-center justify-center"
             style={{
               width: "56px",
@@ -228,7 +228,7 @@ export function LawChatWidget({ lawId, lawTitle }: LawChatWidgetProps) {
               border: "none",
             }}
           >
-            <span className="sr-only">법령 챗봇 열기</span>
+            <span className="sr-only">챗봇</span>
             <MessageCircle className="h-6 w-6" />
             <span
               className="animate-pulse"

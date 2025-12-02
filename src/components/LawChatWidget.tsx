@@ -195,25 +195,27 @@ export function LawChatWidget({ lawId, lawTitle }: LawChatWidgetProps) {
 
   return (
     <>
-      {/* 플로팅 버튼 */}
-      <div className="fixed bottom-4 right-4 z-50">
+      {/* 플로팅 챗봇 버튼 (우측 하단 작은 아이콘 버튼) */}
+      <div className="fixed bottom-5 right-5 z-50">
         {!isOpen && (
-          <Button
+          <button
             type="button"
-            className="h-12 rounded-full shadow-lg bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 px-4"
             onClick={() => setIsOpen(true)}
+            aria-label="법령 챗봇 열기"
+            className="relative flex items-center justify-center w-14 h-14 rounded-full shadow-xl bg-gradient-to-r from-blue-600 to-indigo-500 text-white transition-all duration-200 hover:scale-105 hover:shadow-2xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
-            <MessageCircle className="h-5 w-5" />
-            <span className="hidden sm:inline text-sm font-medium">이 법령에 대해 질문하기</span>
-          </Button>
+            <span className="sr-only">법령 챗봇 열기</span>
+            <MessageCircle className="h-6 w-6" />
+            <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 ring-2 ring-white animate-pulse" />
+          </button>
         )}
       </div>
 
-      {/* 챗봇 패널 */}
+      {/* 챗봇 패널 (우측 하단 작은 창) */}
       {isOpen && (
-        <div className="fixed bottom-4 right-4 z-50 w-full max-w-sm sm:max-w-md">
-          <Card className="shadow-2xl border border-blue-100 flex flex-col max-h-[70vh]">
-            <div className="flex items-center justify-between px-4 py-3 border-b bg-blue-50 rounded-t-lg">
+        <div className="fixed bottom-5 right-5 z-50 w-full max-w-xs sm:max-w-sm">
+          <Card className="shadow-2xl border border-blue-100 flex flex-col max-h-[70vh] rounded-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b bg-blue-50">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
                   <Bot className="h-4 w-4 text-blue-700" />
@@ -233,8 +235,9 @@ export function LawChatWidget({ lawId, lawTitle }: LawChatWidgetProps) {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7"
+                  className="h-7 w-7 rounded-full hover:bg-blue-100"
                   onClick={() => setIsOpen(false)}
+                  aria-label="법령 챗봇 닫기"
                 >
                   <X className="h-4 w-4" />
                 </Button>

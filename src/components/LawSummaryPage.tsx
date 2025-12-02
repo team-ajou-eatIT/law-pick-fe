@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { ScrollArea } from "./ui/scroll-area";
 import { Badge } from "./ui/badge";
+import { LawChatWidget } from "./LawChatWidget";
 import {
   Select,
   SelectContent,

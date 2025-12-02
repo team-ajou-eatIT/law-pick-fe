@@ -107,7 +107,7 @@ export function SearchResults({
       title: "임대차보호법 일부개정법률안",
       type: "법안 분석",
       description:
-        "임차인 보호 강화를 위한 개정안 분석 및 예상 효과를 상세히 설명합니다.",
+        "임차인 보호 강화를 위한 개정안 분석 및 예상효과를 상세히 설명합니다.",
       proposer: "국토교통위원회",
       status: "가결",
       date: "2024.12.22",

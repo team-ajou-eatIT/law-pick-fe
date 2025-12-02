@@ -112,10 +112,10 @@ export function ChatBotPage({ onBack, initialMessage }: ChatBotPageProps) {
   }, [ensureThreadId]);
 
   const frequentQuestions = [
-    "임대차 보증금 반환 받는 방법이 궁금해요",
-    "직장에서 부당해고 당했을 때 어떻게 해야 하나요?",
-    "근로계약서 작성 시 주의사항을 알려주세요",
-    "교통사고 발생 시 대처 방법을 알려주세요"
+    "사장님이 최저임금보다 적게 주면 어떤 처벌을 받나요?",
+    "법적으로 집주인이 월세나 보증금을 올릴 수 있는 최대 비율은 몇퍼센트인가요?",
+    "명시된 근로조건이 사실과 다를 경우, 근로자는 어떤 조치를 취할 수 있나요?",
+    "아내 출산시 받을 수있는 휴가는 몇일인가요?"
   ];
 
   const handleSendMessage = useCallback(async (content?: string) => {
